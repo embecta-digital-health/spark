@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp1.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Resources\renderxmlashtml.xslt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fhir.Metrics" Version="1.0.2" />
+    <PackageReference Include="Hl7.Fhir.DSTU2" Version="0.92.1" />
+  </ItemGroup>
+
+</Project>
