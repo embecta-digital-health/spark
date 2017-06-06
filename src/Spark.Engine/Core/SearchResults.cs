@@ -8,9 +8,8 @@
 
 using System.Collections.Generic;
 using System.Linq;
-
 using Hl7.Fhir.Model;
-using Spark.Search;
+using Spark.Engine.Search.ValueExpressionTypes;
 
 namespace Spark.Engine.Core
 {

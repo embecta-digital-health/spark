@@ -1,31 +1,56 @@
-using System.Diagnostics;
-using System.Net;
+using System;
 using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Web.Http.ExceptionHandling;
-using System.Web.Http.Results;
-using Spark.Engine.Core;
+using System.Web.Http.Filters;
 
 namespace Spark.Engine.ExceptionHandling
 {
-    public class FhirGlobalExceptionHandler : ExceptionHandler
+    public class FhirGlobalExceptionHandler : IExceptionFilter, IDisposable
     {
-        private readonly IExceptionResponseMessageFactory exceptionResponseMessageFactory;
+        private readonly IExceptionResponseMessageFactory _exceptionResponseMessageFactory;
 
         public FhirGlobalExceptionHandler(IExceptionResponseMessageFactory exceptionResponseMessageFactory)
         {
-            this.exceptionResponseMessageFactory = exceptionResponseMessageFactory;
+            _exceptionResponseMessageFactory = exceptionResponseMessageFactory;
         }
 
-        public override bool ShouldHandle(ExceptionHandlerContext context)
+        public void Dispose()
         {
-            return true;
+            throw new NotImplementedException();
         }
 
-        public override void Handle(ExceptionHandlerContext context)
+        public bool AllowMultiple { get; }
+
+        public Task ExecuteExceptionFilterAsync(HttpActionExecutedContext actionExecutedContext, CancellationToken cancellationToken)
         {
-            HttpResponseMessage responseMessage = exceptionResponseMessageFactory.GetResponseMessage(context.Exception,
+            throw new NotImplementedException();
+        }
+
+        //ORIGINAL METHODS:
+//        public override bool ShouldHandle(ExceptionHandlerContext context)
+//        {
+//            return true;
+//        }
+
+//        public override void Handle(ExceptionHandlerContext context)
+//        {
+//            HttpResponseMessage responseMessage = _exceptionResponseMessageFactory.GetResponseMessage(context.Exception,
+//                context.Request);
+//            context.Result = new ResponseMessageResult(responseMessage);
+//        }
+//END ORIGINAL METHODS
+
+        /// <summary>
+        ///     I am not convinced this is right.  I had to take some liberties with converting this method to .net core 2.0
+        /// </summary>
+        /// <param name="context"></param>
+        public void OnException(ExceptionContext context)
+        {
+            HttpResponseMessage responseMessage = _exceptionResponseMessageFactory.GetResponseMessage(context.Exception,
                 context.Request);
-            context.Result = new ResponseMessageResult(responseMessage);
+            context.Response = new HttpResponseMessage(responseMessage.StatusCode);
         }
     }
 }

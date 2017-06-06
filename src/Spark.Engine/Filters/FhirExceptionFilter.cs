@@ -10,21 +10,22 @@ using System.Net.Http;
 using System.Web.Http;
 using System.Web.Http.Filters;
 using Spark.Engine.ExceptionHandling;
+using ExceptionFilterAttribute = System.Web.Http.Filters.ExceptionFilterAttribute;
 
-namespace Spark.Filters
+namespace Spark.Engine.Filters
 {
     public class FhirExceptionFilter : ExceptionFilterAttribute
     {
-        private readonly IExceptionResponseMessageFactory exceptionResponseMessageFactory;
+        private readonly IExceptionResponseMessageFactory _exceptionResponseMessageFactory;
 
         public FhirExceptionFilter(IExceptionResponseMessageFactory exceptionResponseMessageFactory)
         {
-            this.exceptionResponseMessageFactory = exceptionResponseMessageFactory;
+            this._exceptionResponseMessageFactory = exceptionResponseMessageFactory;
         }
 
         public override void OnException(HttpActionExecutedContext context)
         {
-            HttpResponseMessage response = exceptionResponseMessageFactory.GetResponseMessage(context.Exception, context.Request);
+            HttpResponseMessage response = _exceptionResponseMessageFactory.GetResponseMessage(context.Exception, context.Request);
            
             throw new HttpResponseException(response);
         }

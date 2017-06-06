@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 using System.Web.Http;
 using Hl7.Fhir.Model;
 
-namespace Spark.Filters 
+namespace Spark.Engine.Filters 
 {
     /// <summary>
     ///   A GZip encoder/decoder for a HTTP messages.

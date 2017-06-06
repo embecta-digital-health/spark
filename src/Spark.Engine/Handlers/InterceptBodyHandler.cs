@@ -7,7 +7,7 @@
  */
 
 
-namespace Spark.Handlers
+namespace Spark.Engine.Handlers
 {
     //public class InterceptBodyHandler : DelegatingHandler
     //{

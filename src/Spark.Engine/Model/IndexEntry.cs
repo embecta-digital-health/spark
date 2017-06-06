@@ -1,9 +1,6 @@
-﻿using Spark.Search;
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Spark.Engine.Search.ValueExpressionTypes;
 
 namespace Spark.Engine.Model
 {

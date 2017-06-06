@@ -39,7 +39,7 @@ namespace Spark.Engine.Service.FhirServiceExtensions
                     //throw exception. probably we should manually throw this in order to add fhir specific details
                     if (string.IsNullOrEmpty(localKeyValue) == false)
                     {
-                        Key localKey = Core.Key.ParseOperationPath(localKeyValue);
+                        Key localKey = Key.ParseOperationPath(localKeyValue);
                         postEntry = Entry.Create(Bundle.HTTPVerb.GET, localKey, null);
                     }
                 }

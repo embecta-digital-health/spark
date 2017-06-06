@@ -12,7 +12,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 
-namespace Spark.Search.Support
+namespace Spark.Engine.Search.Support
 {
     internal static class ReflectionHelper
     {

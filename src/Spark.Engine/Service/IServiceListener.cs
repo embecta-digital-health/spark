@@ -1,7 +1,7 @@
 ﻿using System;
 using Spark.Engine.Core;
 
-namespace Spark.Service
+namespace Spark.Engine.Service
 {
     public interface IServiceListener
     {

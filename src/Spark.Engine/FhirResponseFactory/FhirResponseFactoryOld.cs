@@ -3,7 +3,7 @@ using System.Linq;
 using Spark.Engine.Core;
 using Spark.Engine.Extensions;
 using Spark.Engine.Interfaces;
-using Spark.Service;
+using Spark.Engine.Service;
 
 namespace Spark.Engine.FhirResponseFactory
 {

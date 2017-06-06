@@ -1,13 +1,11 @@
-﻿using Hl7.Fhir.Introspection;
-using Hl7.Fhir.Model;
-using Hl7.Fhir.Validation;
-using Spark.Engine.Extensions;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
+using Hl7.Fhir.Introspection;
+using Hl7.Fhir.Model;
+using Hl7.Fhir.Validation;
+using Spark.Engine.Extensions;
 
 namespace Spark.Engine.Core
 {

@@ -2,9 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
-using static Hl7.Fhir.Model.ModelInfo;
+using Hl7.Fhir.Utility;
 using Spark.Engine.Extensions;
-using Hl7.Fhir.Introspection;
 using Spark.Engine.Model;
 
 namespace Spark.Engine.Core
@@ -28,7 +27,7 @@ namespace Spark.Engine.Core
 
     public class FhirModel : IFhirModel
     {
-        public FhirModel(Dictionary<Type, string> csTypeToFhirTypeNameMapping, IEnumerable<SearchParamDefinition> searchParameters)
+        public FhirModel(Dictionary<Type, string> csTypeToFhirTypeNameMapping, IEnumerable<ModelInfo.SearchParamDefinition> searchParameters)
         {
             LoadSearchParameters(searchParameters);
             _csTypeToFhirTypeName = csTypeToFhirTypeNameMapping;
@@ -39,13 +38,13 @@ namespace Spark.Engine.Core
         {
         }
 
-        public FhirModel(IEnumerable<SearchParamDefinition> searchParameters)
+        public FhirModel(IEnumerable<ModelInfo.SearchParamDefinition> searchParameters)
         {
             LoadSearchParameters(searchParameters);
             LoadCompartments();
         }
 
-        private void LoadSearchParameters(IEnumerable<SearchParamDefinition> searchParameters)
+        private void LoadSearchParameters(IEnumerable<ModelInfo.SearchParamDefinition> searchParameters)
         {
             _searchParameters = searchParameters.Select(sp => createSearchParameterFromSearchParamDefinition(sp)).ToList();
             LoadGenericSearchParameters();
@@ -80,7 +79,7 @@ namespace Spark.Engine.Core
             //So we apply the Except operation to make sure these parameters are not added twice.
         }
 
-        private SearchParameter createSearchParameterFromSearchParamDefinition(SearchParamDefinition def)
+        private SearchParameter createSearchParameterFromSearchParamDefinition(ModelInfo.SearchParamDefinition def)
         {
             var result = new SearchParameter();
             result.Name = def.Name;

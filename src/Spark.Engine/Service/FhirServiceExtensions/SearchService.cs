@@ -4,10 +4,9 @@ using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
-using Spark.Core;
 using Spark.Engine.Core;
 using Spark.Engine.Extensions;
-using Spark.Service;
+using Spark.Engine.Interfaces;
 
 namespace Spark.Engine.Service.FhirServiceExtensions
 {

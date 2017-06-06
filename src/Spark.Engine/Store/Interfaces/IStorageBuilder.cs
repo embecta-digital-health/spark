@@ -1,6 +1,4 @@
 ﻿
-using System;
-
 namespace Spark.Engine.Store.Interfaces
 {
     public interface IStorageBuilder

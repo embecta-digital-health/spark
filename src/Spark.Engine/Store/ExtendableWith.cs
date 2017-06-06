@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Spark.Engine.Store.Interfaces;
 
-namespace Spark.Engine.Storage
+namespace Spark.Engine.Store
 {
     public class ExtendableWith<T> : IExtendableWith<T>, IEnumerable<T>
     {

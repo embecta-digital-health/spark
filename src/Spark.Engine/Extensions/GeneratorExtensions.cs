@@ -1,5 +1,5 @@
 ﻿using Hl7.Fhir.Model;
-using Spark.Core;
+using Spark.Engine.Interfaces;
 
 namespace Spark.Engine.Extensions
 {

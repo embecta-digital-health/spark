@@ -1,11 +1,8 @@
-﻿using Hl7.Fhir.Model;
-using Spark.Search.Support;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+using Hl7.Fhir.Model;
+using Spark.Engine.Search.Support;
 
 namespace Spark.Engine.Search.Model
 {

@@ -1,12 +1,11 @@
-﻿using System.Web.Http;
-using System.Web.Http.Validation;
-using System.Net.Http.Formatting;
+﻿using System.Net.Http.Formatting;
+using System.Web.Http;
 using System.Web.Http.ExceptionHandling;
-using Spark.Filters;
-using Spark.Handlers;
-using Spark.Formatters;
-using Spark.Core;
+using System.Web.Http.Validation;
 using Spark.Engine.ExceptionHandling;
+using Spark.Engine.Filters;
+using Spark.Engine.Formatters.Deprecated;
+using Spark.Engine.Handlers;
 
 namespace Spark.Engine.Extensions
 {
@@ -18,7 +17,7 @@ namespace Spark.Engine.Extensions
             if (clean) config.Formatters.Clear();
 
             // Hook custom formatters            
-            config.Formatters.Add(new XmlFhirFormatter());
+            
             config.Formatters.Add(new JsonFhirFormatter());
             config.Formatters.Add(new BinaryFhirFormatter());
             config.Formatters.Add(new HtmlFhirFormatter());
@@ -26,7 +25,7 @@ namespace Spark.Engine.Extensions
             // Add these formatters in case our own throw exceptions, at least you
             // get a decent error message from the default formatters then.
             config.Formatters.Add(new JsonMediaTypeFormatter());
-            config.Formatters.Add(new XmlMediaTypeFormatter());
+            
         }
 
         public static void AddFhirExceptionHandling(this HttpConfiguration config)

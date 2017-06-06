@@ -1,7 +1,7 @@
-﻿using Hl7.Fhir.Model;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using Hl7.Fhir.Model;
 
-namespace Spark.Core.Interfaces
+namespace Spark.Engine.Interfaces
 {
     interface IResourceValidator
     {

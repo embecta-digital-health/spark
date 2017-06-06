@@ -11,10 +11,10 @@ using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
-using Spark.Engine.Core;
-using Hl7.Fhir.Introspection;
+using Hl7.Fhir.Utility;
+using Spark.Engine.Core.Core;
 
-namespace Spark.Engine.Service.FhirServiceExtensions
+namespace Spark.Engine.Core.Service.FhirServiceExtensions
 {
 
     public static class ConformanceBuilder

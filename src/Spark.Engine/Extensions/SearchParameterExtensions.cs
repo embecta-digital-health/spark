@@ -1,9 +1,9 @@
-﻿using Hl7.Fhir.Introspection;
-using Hl7.Fhir.Model;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Hl7.Fhir.Model;
+using Hl7.Fhir.Utility;
 
 namespace Spark.Engine.Extensions
 {

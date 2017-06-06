@@ -16,9 +16,8 @@ using Spark.Engine.Extensions;
 using Spark.Engine.Model;
 using Spark.Engine.Search;
 using Spark.Engine.Search.Model;
+using Spark.Engine.Search.ValueExpressionTypes;
 using Spark.Engine.Store.Interfaces;
-using Spark.Search;
-using A = Spark.Engine.Auxiliary;
 
 namespace Spark.Engine.Service.FhirServiceExtensions
 {
@@ -96,7 +95,7 @@ namespace Spark.Engine.Service.FhirServiceExtensions
                     }
 
                     //Replace references to these contained resources with the newly created id's.
-                    A.ResourceVisitor.VisitByType(domainResource,
+                    Auxiliary.ResourceVisitor.VisitByType(domainResource,
                          (el, path) =>
                          { var currentRef = (el as ResourceReference);
                              string replacementId;

@@ -8,7 +8,7 @@
 
 using System.Xml.Linq;
 
-namespace Spark.Search.Support
+namespace Spark.Engine.Search.Support
 {
     public static class XmlNs
     {

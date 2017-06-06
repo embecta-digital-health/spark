@@ -6,14 +6,14 @@
  * available at https://raw.githubusercontent.com/ewoutkramer/fhir-net-api/master/LICENSE
  */
 
-using Spark.Search.Support;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Hl7.Fhir.Rest;
 using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
+using Spark.Engine.Search.Support;
 
-namespace Spark.Search
+namespace Spark.Engine.Search.ValueExpressionTypes
 {
     public class Criterium : Expression, ICloneable
     {

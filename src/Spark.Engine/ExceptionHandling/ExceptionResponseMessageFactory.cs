@@ -10,7 +10,7 @@ namespace Spark.Engine.ExceptionHandling
 {
     public class ExceptionResponseMessageFactory : IExceptionResponseMessageFactory
     {
-        private SparkException ex;
+        private SparkException _ex;
 
         public HttpResponseMessage GetResponseMessage(Exception exception, HttpRequestMessage request)
         {
@@ -35,7 +35,7 @@ namespace Spark.Engine.ExceptionHandling
             return request.CreateResponse(exception.StatusCode, outcome); ;
         }
 
-        private HttpResponseMessage InternalCreateHttpResponseMessage(HttpResponseException exception, HttpRequestMessage request)
+        private HttpResponseMessage InternalCreateHttpResponseMessage(System.Web.Http.HttpResponseException exception, HttpRequestMessage request)
         {
             if (exception == null)
                 return null;

@@ -9,7 +9,7 @@
 using System.Collections;
 using Hl7.Fhir.Model;
 
-namespace Spark.Search.Support
+namespace Spark.Engine.Search.Support
 {
     public static class NullExtensions
     {

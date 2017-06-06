@@ -8,7 +8,7 @@
 
 using System;
 
-namespace Spark.Search
+namespace Spark.Engine.Search.ValueExpressionTypes
 {
     public interface IOperationBuilder
     {

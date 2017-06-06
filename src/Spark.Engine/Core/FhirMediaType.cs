@@ -6,14 +6,15 @@
  * available at https://raw.github.com/furore-fhir/spark/master/LICENSE
  */
 
-using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
+
 //using System.Web.Http;
 
 namespace Spark.Engine.Core

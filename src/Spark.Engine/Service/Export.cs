@@ -6,16 +6,16 @@
  * available at https://raw.github.com/furore-fhir/spark/master/LICENSE
  */
 
-using Hl7.Fhir.Model;
 using System;
 using System.Collections.Generic;
-using Spark.Core;
 using System.Xml.Linq;
+using Hl7.Fhir.Model;
+using Spark.Engine.Auxiliary;
 using Spark.Engine.Core;
 using Spark.Engine.Extensions;
-using Spark.Engine.Auxiliary;
+using ResourceVisitor = Spark.Engine.Auxiliary.ResourceVisitor;
 
-namespace Spark.Service
+namespace Spark.Engine.Service
 {
     /// <summary>
     /// Import can map id's and references  that are local to the Spark Server to absolute id's and references in outgoing Interactions.
@@ -113,7 +113,7 @@ namespace Spark.Service
 
             Type[] types = { typeof(ResourceReference), typeof(FhirUri), typeof(Narrative) };
 
-            Engine.Auxiliary.ResourceVisitor.VisitByType(resource, action, types);
+            ResourceVisitor.VisitByType(resource, action, types);
         }
 
         //Key ExternalizeReference(Key original)

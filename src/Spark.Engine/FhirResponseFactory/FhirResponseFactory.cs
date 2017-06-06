@@ -5,19 +5,10 @@ using Hl7.Fhir.Model;
 using Spark.Engine.Core;
 using Spark.Engine.Extensions;
 using Spark.Engine.Interfaces;
-using Spark.Service;
 
 namespace Spark.Engine.FhirResponseFactory
 {
-    public interface IFhirResponseFactory
-    {
-        FhirResponse GetFhirResponse(Entry entry, IKey key = null, IEnumerable<object> parameters = null);
-        FhirResponse GetFhirResponse(Entry entry, IKey key = null, params object[] parameters);
-        FhirResponse GetMetadataResponse(Entry entry, IKey key = null);
-        FhirResponse GetFhirResponse(IList<Entry> interactions, Bundle.BundleType bundleType);
-        FhirResponse GetFhirResponse(Bundle bundle);
-        FhirResponse GetFhirResponse(IEnumerable<Tuple<Entry, FhirResponse>> responses, Bundle.BundleType bundleType);
-    }
+
 
     public class FhirResponseFactory : IFhirResponseFactory
     {
@@ -70,6 +61,11 @@ namespace Spark.Engine.FhirResponseFactory
             return Respond.WithMeta(entry);
         }
 
+        public FhirResponse GetMetadataResponse(Entry entry, Key key = null)
+        {
+            throw new NotImplementedException();
+        }
+
         public FhirResponse GetFhirResponse(IList<Entry> interactions, Bundle.BundleType bundleType)
         {
             Bundle bundle = localhost.CreateBundle(bundleType).Append(interactions);
@@ -85,6 +81,16 @@ namespace Spark.Engine.FhirResponseFactory
             }
       
             return Respond.WithBundle(bundle);
+        }
+
+        public FhirResponse GetFhirResponse(Entry entry, Key key = null, params object[] parameters)
+        {
+            throw new NotImplementedException();
+        }
+
+        public FhirResponse GetFhirResponse(Entry entry, Key key = null, IEnumerable<object> parameters = null)
+        {
+            throw new NotImplementedException();
         }
 
         public FhirResponse GetFhirResponse(Bundle bundle)

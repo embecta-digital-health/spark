@@ -6,14 +6,14 @@
  * available at https://raw.github.com/furore-fhir/spark/master/LICENSE
  */
 
-using Hl7.Fhir.Introspection;
-using Hl7.Fhir.Model;
-using Hl7.Fhir.Validation;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using Hl7.Fhir.Introspection;
+using Hl7.Fhir.Model;
+using Hl7.Fhir.Validation;
 
 namespace Spark.Engine.Core
 {

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Hl7.Fhir.Model;
 using Spark.Engine.Core;
-using Spark.Service;
+using Spark.Engine.Extensions;
 
 namespace Spark.Engine.Service.FhirServiceExtensions
 {

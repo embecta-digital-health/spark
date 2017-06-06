@@ -1,17 +1,13 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
-using Spark.Core;
 using Spark.Engine.Core;
 using Spark.Engine.Extensions;
 using Spark.Engine.FhirResponseFactory;
 using Spark.Engine.Service.FhirServiceExtensions;
-using Spark.Engine.Storage;
-using Spark.Service;
+using Spark.Engine.Store;
 
 namespace Spark.Engine.Service
 {

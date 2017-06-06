@@ -5,10 +5,11 @@
  * This file is licensed under the BSD 3-Clause license
  * available at https://raw.github.com/furore-fhir/spark/master/LICENSE
  */
+
 using System;
 using System.Collections.Generic;
 using System.Net;
-using Spark.Core;
+using Spark.Engine.Core;
 
 namespace Spark.Engine.Auxiliary
 {

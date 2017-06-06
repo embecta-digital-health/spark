@@ -1,6 +1,5 @@
 ﻿using System;
-using System.Net.Http;
-using Spark.Engine.Extensions;
+using Microsoft.AspNetCore.Http;
 
 namespace Spark.Engine.Core
 {
@@ -10,11 +9,13 @@ namespace Spark.Engine.Core
         {
             
         }
-        public HistoryParameters(HttpRequestMessage request)
+        public HistoryParameters(HttpRequest request)
         {
-            Count = request.GetIntParameter(FhirParameter.COUNT);
-            Since = request.GetDateParameter(FhirParameter.SINCE);
-            SortBy = request.GetParameter(FhirParameter.SORT);
+            throw new NotImplementedException();
+            //todo figure out how to get the parameters below from the request in .NET core
+//            Count = request.GetIntParameter(FhirParameter.COUNT);
+//            Since = request.GetDateParameter(FhirParameter.SINCE);
+//            SortBy = request.GetParameter(FhirParameter.SORT);
         }
 
         public int? Count { get; set; }

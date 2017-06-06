@@ -1,7 +1,7 @@
-﻿using Hl7.Fhir.Model;
-using Spark.Engine.Model;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using Hl7.Fhir.Model;
+using Spark.Engine.Model;
 
 namespace Spark.Engine.Core
 {

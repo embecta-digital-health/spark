@@ -2,7 +2,7 @@
 using System.Xml.Linq;
 using Spark.Engine.Core;
 
-namespace Spark.Core
+namespace Spark.Engine.Service
 {
     public static class XDocumentExtensions
     {

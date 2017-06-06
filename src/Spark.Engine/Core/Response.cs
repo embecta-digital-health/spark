@@ -1,6 +1,6 @@
-﻿using Hl7.Fhir.Model;
-using System.Net;
+﻿using System.Net;
 using System.Net.Http;
+using Hl7.Fhir.Model;
 
 namespace Spark.Engine.Core
 {

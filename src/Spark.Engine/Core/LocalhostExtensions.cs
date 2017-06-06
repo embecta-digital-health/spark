@@ -1,6 +1,6 @@
-﻿using Hl7.Fhir.Model;
+﻿using System;
+using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
-using System;
 using Spark.Engine.Extensions;
 
 namespace Spark.Engine.Core

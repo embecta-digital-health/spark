@@ -9,7 +9,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Spark.Service
+namespace Spark.Engine.Service
 {
     public class Mapper<TKEY, TVALUE>
     {

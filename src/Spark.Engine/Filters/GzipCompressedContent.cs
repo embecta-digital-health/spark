@@ -6,19 +6,14 @@
  * available at https://raw.github.com/furore-fhir/spark/master/LICENSE
  */
 
-using Spark.Engine.Auxiliary;
-using System;
-using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Text;
 using System.Threading.Tasks;
+using Spark.Engine.Auxiliary;
 
-namespace Spark.Filters 
+namespace Spark.Engine.Filters 
 {
     /// <summary>
     ///   GZip compressed encoded <see cref="HttpContent"/>.

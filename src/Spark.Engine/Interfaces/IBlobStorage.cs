@@ -10,7 +10,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-namespace Spark.Core
+namespace Spark.Engine.Interfaces
 {
     public interface IBlobStorage : IDisposable
     {

@@ -2,9 +2,8 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Spark.Engine.Core;
-using Spark.Engine.Extensions;
 
-namespace Spark.Core
+namespace Spark.Engine.Filters
 {
 
     public class FhirResponseHandler : DelegatingHandler
@@ -18,7 +17,7 @@ namespace Spark.Core
                     FhirResponse fhirResponse;
                     if (task.IsCompleted)
                     {
-                        if (task.Result.TryGetContentValue(out fhirResponse))
+                        if (task.Result.TryGetContentValue(out fhirResponse))//what is this line doing?
                         {
                             return request.CreateResponse(fhirResponse);
                         }

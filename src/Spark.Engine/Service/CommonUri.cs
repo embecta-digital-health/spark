@@ -8,7 +8,7 @@
 
 using System;
 
-namespace Spark.Service
+namespace Spark.Engine.Service
 {
     public static class CommonUri
     {

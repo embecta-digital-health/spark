@@ -1,15 +1,12 @@
-﻿using Hl7.Fhir.Model;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Hl7.Fhir.Model;
 using Spark.Engine.Core;
 using Spark.Engine.Extensions;
 using Spark.Engine.Logging;
 using Spark.Engine.Model;
-using Spark.Search;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
+using Spark.Engine.Search.ValueExpressionTypes;
 
 namespace Spark.Engine.Search
 {

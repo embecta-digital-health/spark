@@ -4,7 +4,7 @@ using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Spark.Engine.Core;
 
-namespace Spark.Service
+namespace Spark.Engine.Service
 {
     public interface IFhirService
     {

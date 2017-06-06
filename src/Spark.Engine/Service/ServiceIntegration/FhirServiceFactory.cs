@@ -1,11 +1,10 @@
 using System;
 using System.Linq;
-using Spark.Core;
 using Spark.Engine.Core;
 using Spark.Engine.FhirResponseFactory;
+using Spark.Engine.Interfaces;
 using Spark.Engine.Service.FhirServiceExtensions;
 using Spark.Engine.Store.Interfaces;
-using Spark.Service;
 
 namespace Spark.Engine.Service.ServiceIntegration
 {

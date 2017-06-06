@@ -6,11 +6,11 @@
  * available at https://raw.githubusercontent.com/ewoutkramer/fhir-net-api/master/LICENSE
  */
 
-using Hl7.Fhir.Model;
-using Spark.Search.Support;
 using System;
+using Hl7.Fhir.Model;
+using Spark.Engine.Search.Support;
 
-namespace Spark.Search
+namespace Spark.Engine.Search.ValueExpressionTypes
 {
     /// <summary>
     /// DateTimeValue is allways specified up to the second.

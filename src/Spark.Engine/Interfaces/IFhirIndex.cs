@@ -10,7 +10,7 @@ using System.Collections.Generic;
 using Hl7.Fhir.Rest;
 using Spark.Engine.Core;
 
-namespace Spark.Core
+namespace Spark.Engine.Interfaces
 {
 
     public interface IFhirIndex

@@ -6,10 +6,10 @@
  * available at https://raw.githubusercontent.com/ewoutkramer/fhir-net-api/master/LICENSE
  */
 
-using Hl7.Fhir.Serialization;
 using System;
+using Hl7.Fhir.Serialization;
 
-namespace Spark.Search
+namespace Spark.Engine.Search.ValueExpressionTypes
 {
     public class NumberValue : ValueExpression
     {

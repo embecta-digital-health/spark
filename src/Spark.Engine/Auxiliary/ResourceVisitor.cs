@@ -6,10 +6,10 @@
  * available at https://raw.github.com/furore-fhir/spark/master/LICENSE
  */
 
-using Hl7.Fhir.Model;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Hl7.Fhir.Model;
 
 namespace Spark.Engine.Auxiliary
 {

@@ -4,8 +4,7 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 
-
-namespace Spark.Search.Support
+namespace Spark.Engine.Search.Support
 {
     internal static class Message
     {

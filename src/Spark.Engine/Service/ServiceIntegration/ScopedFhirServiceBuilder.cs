@@ -1,6 +1,5 @@
 using System;
 using Spark.Engine.Store.Interfaces;
-using Spark.Service;
 
 namespace Spark.Engine.Service.ServiceIntegration
 {

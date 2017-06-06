@@ -1,8 +1,4 @@
-﻿using Spark.Core;
-using Spark.Engine.Extensions;
-using System;
-using System.Collections;
-using System.Collections.Generic;
+﻿using Spark.Engine.Extensions;
 
 namespace Spark.Engine.Core
 {

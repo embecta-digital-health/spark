@@ -8,7 +8,7 @@
 
 using Hl7.Fhir.Model;
 
-namespace Spark.Search
+namespace Spark.Engine.Search.ValueExpressionTypes
 {
     public class UntypedValue : ValueExpression
     {
