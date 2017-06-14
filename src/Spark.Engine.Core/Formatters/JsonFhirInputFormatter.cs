@@ -14,6 +14,7 @@ using Microsoft.Net.Http.Headers;
 using Microsoft.VisualBasic;
 using Spark.Configuration;
 using Spark.Engine.Core;
+using System.IO;
 
 namespace Spark.Engine.Formatters
 {
@@ -46,7 +47,12 @@ namespace Spark.Engine.Formatters
             return false;
         }
 
-        public override Task<InputFormatterResult> ReadRequestBodyAsync(InputFormatterContext context, Encoding encoding)
+        public override Task<InputFormatterResult> ReadRequestBodyAsync(InputFormatterContext context, Encoding e)
+        {
+            return ReadAsync(context);
+        }
+
+        public override Task<InputFormatterResult> ReadAsync(InputFormatterContext context)
         {
             if (context == null) throw new ArgumentNullException(nameof(context));
 
@@ -64,25 +70,24 @@ namespace Spark.Engine.Formatters
 
             try
             {
-                string body = context.HttpContext.Request.Body.ToString();
-
                 if (typeof(Resource).IsAssignableFrom(context.ModelType))
                 {
-                    var resource = FhirParser.ParseResourceFromJson(body);
-                    return InputFormatterResult.SuccessAsync(resource);
+                    using (StreamReader reader = new StreamReader(request.Body, Encoding.UTF8, true, 1024, true))
+                    {
+                        string bodyStr = reader.ReadToEnd();
+                        var resource = FhirParser.ParseResourceFromJson(bodyStr);
+                        return InputFormatterResult.SuccessAsync(resource);
+
+
+                    }
                 }
-                throw Error.Internal("Cannot read unsupported type {0} from body", context.ModelName);
+                else
+                    throw Error.Internal("Cannot read unsupported type {0} from body", context.ModelName);
             }
             catch (FormatException exception)
             {
                 throw Error.BadRequest("Body parsing failed: " + exception.Message);
             }
-        }
-
-        public override Task<InputFormatterResult> ReadAsync(InputFormatterContext context)
-        {
-            Debugger.Break();
-            return base.ReadAsync(context);
         }
 
         public override string ToString()
@@ -107,12 +112,6 @@ namespace Spark.Engine.Formatters
         {
             Debugger.Break();
             return base.GetSupportedContentTypes(contentType, objectType);
-        }
-
-        public override Task<InputFormatterResult> ReadRequestBodyAsync(InputFormatterContext context)
-        {
-            Debugger.Break();
-            return base.ReadRequestBodyAsync(context);
         }
 
     }

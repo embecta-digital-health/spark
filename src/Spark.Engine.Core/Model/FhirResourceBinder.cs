@@ -9,6 +9,10 @@ using Microsoft.CSharp.RuntimeBinder;
 using Spark.Core;
 using Spark.Engine.Core;
 using Spark.Engine.Formatters;
+using Microsoft.AspNetCore.Mvc.Formatters;
+using System.Text;
+using Hl7.Fhir.Serialization;
+using System.IO;
 
 // ReSharper disable ArrangeTypeModifiers
 
@@ -22,36 +26,28 @@ namespace Spark.Engine.Model
         public FhirResourceBinder(IFhirStore db)
         {
             _db = db;
+            _fhirInputFormatter = new JsonFhirInputFormatter();
         }
 
-        public Task BindModelAsync(ModelBindingContext bindingContext)
+        public  Task BindModelAsync(ModelBindingContext bindingContext)
         {
             if (bindingContext == null)
             {
                 throw new ArgumentNullException(nameof(bindingContext));
             }
-
-            var valueProviderResult = bindingContext.ValueProvider.GetValue(bindingContext.ModelType);
-            var valueProviderResult2 = bindingContext.ValueProvider.GetValue(bindingContext.ModelName);
-
-            if (valueProviderResult.Length > 0)
+            using (StreamReader reader
+                = new StreamReader(bindingContext.HttpContext.Request.Body, Encoding.UTF8, true, 1024, true))
             {
-                var valueAsString = valueProviderResult.FirstValue;
+                string bodyStr = reader.ReadToEnd();
+                var resource = FhirParser.ParseResourceFromJson(bodyStr);
+                bindingContext.Result = ModelBindingResult.Success(resource);
 
-                if (string.IsNullOrEmpty(valueAsString))
-                {
-                    throw new RuntimeBinderException();
-//                    return _fallbackBinder.BindModelAsync(bindingContext);
-                }
-
-//                _fhirInputFormatter.ReadRequestBodyAsync();
-
-//                var result = HtmlEncoder.Default.Encode(valueAsString);
-                var result = new Practitioner(){Id = "newprac000001", Active = true};
-                bindingContext.Result = ModelBindingResult.Success(result);
             }
 
-            return TaskCache.CompletedTask;
+
+
+
+            return Task.CompletedTask;
         }
     }
 }

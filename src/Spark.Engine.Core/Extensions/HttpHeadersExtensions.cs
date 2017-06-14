@@ -70,19 +70,18 @@ namespace Spark.Engine.Extensions
             return null;
         }
 
-        public static List<Tuple<string, string>> TupledParameters(this HttpRequestMessage request)
+        public static List<Tuple<string, string>> TupledParameters(this Microsoft.AspNetCore.Http.HttpRequest request)
         {
             var list = new List<Tuple<string, string>>();
 
-            IEnumerable<KeyValuePair<string, string>> query = request.GetQueryNameValuePairs();
-            foreach (var pair in query)
+            foreach (var pair in request.Query)
             {
                 list.Add(new Tuple<string, string>(pair.Key, pair.Value));
             }
             return list;
         }
 
-        public static SearchParams GetSearchParams(this HttpRequestMessage request)
+        public static SearchParams GetSearchParams(this Microsoft.AspNetCore.Http.HttpRequest request)
         {
             var parameters = request.TupledParameters().Where(tp => tp.Item1 != "_format");
             UriParamList actualParameters = new UriParamList(parameters);
