@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <ApplicationIcon />
+    <OutputTypeEx>library</OutputTypeEx>
+    <StartupObject />
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fhir.Metrics" Version="1.0.2" />
+    <PackageReference Include="Hl7.Fhir.DSTU2" Version="0.90.5-alpha1" />
+    <PackageReference Include="Microsoft.AspNet.WebApi.Core" Version="5.2.3" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="1.1.0" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="4.4.0-preview1-25305-02" />
+  </ItemGroup>
+
+  <!--  <ItemGroup>-->
+  <!--    <Reference Include="System.Web.Http">-->
+  <!--      <HintPath>..\..\packages\Microsoft.AspNet.WebApi.Core.5.2.3\lib\net45\System.Web.Http.dll</HintPath>-->
+  <!--    </Reference>-->
+  <!--  </ItemGroup>-->
+
+</Project>
