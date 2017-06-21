@@ -7,28 +7,39 @@
  */
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Diagnostics;
+using System.Globalization;
 using System.Net.Http;
-using System.Net.Http.Formatting;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
-using Microsoft.AspNetCore.Http.Internal;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Primitives;
 using Spark.Engine.Auxiliary;
-using Spark.Engine.Extensions;
 using Spark.Engine.Core;
+using Spark.Engine.Extensions;
 
-
-namespace Spark.Handlers
+namespace Spark.Engine.Middleware
 {
-    public class FhirMediaTypeHandler : DelegatingHandler
+    public class FhirMediaTypeMiddleware
     {
+        private readonly RequestDelegate _nextDelegate;
+
+        public FhirMediaTypeMiddleware(RequestDelegate nextDelegate)
+        {
+            _nextDelegate = nextDelegate;
+        }
+
+        public async Task Invoke(HttpContext context)
+        {
+            Debug.WriteLine("");
+            // Call the nextDelegate delegate/middleware in the pipeline
+            await _nextDelegate.Invoke(context);
+
+            //await SendAsync(context, new CancellationToken(false));
+        }
+
         private bool isBinaryRequest(HttpRequest request)
         {
 //            var ub = new UriBuilder(request.RequestUri);//pre.netCore
@@ -45,8 +56,10 @@ namespace Spark.Handlers
             // HACK: replace quick hack by solid solution.
         }
 
-        protected async Task<HttpResponse> SendAsync(HttpRequest request, CancellationToken cancellationToken)
+        protected async Task SendAsync(HttpContext context, CancellationToken cancellationToken)
         {
+            HttpRequest request = context.Request;
+
             string formatParam = request.GetParameter("_format");
             if (!string.IsNullOrEmpty(formatParam))
             {
@@ -73,7 +86,8 @@ namespace Spark.Handlers
             // HACK: passes to BinaryFhirFormatter
             if (isBinaryRequest(request))
             {
-                throw new NotImplementedException();//pre.netCore removed for now
+                throw new NotImplementedException();
+                //pre.netCore
 //                if (request.Content.Headers.ContentType != null)
 //                {
 //                    var format = request.Content.Headers.ContentType.MediaType;
@@ -86,8 +100,8 @@ namespace Spark.Handlers
 //                    request.Headers.Replace("Accept", FhirMediaType.BinaryResource);
 //                }
             }
-          throw new NotImplementedException();
-//            return ;
+          
+            await context.Response.WriteAsync(context.Response.ToString(),  cancellationToken);
         }
     }
     

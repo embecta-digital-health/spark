@@ -6,12 +6,14 @@
  * available at https://raw.github.com/furore-fhir/spark/master/LICENSE
  */
 using System;
+using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Formatting;
 using System.Net.Http.Headers;
 using System.Text;
 using System.IO;
 using Hl7.Fhir.Model;
+using Microsoft.AspNetCore.Http;
 using Spark.Core;
 using Spark.Engine.Core;
 using Spark.Engine.Extensions;
@@ -27,7 +29,7 @@ namespace Spark.Formatters
         }
 
         protected Entry entry = null;
-        protected HttpRequestMessage requestMessage;
+        protected HttpRequest requestMessage;
 
         private void setEntryHeaders(HttpContentHeaders headers)
         {
@@ -63,11 +65,22 @@ namespace Spark.Formatters
             setEntryHeaders(headers);
         }
 
-        public override MediaTypeFormatter GetPerRequestFormatterInstance(Type type, HttpRequestMessage request, MediaTypeHeaderValue mediaType)
+//        public override MediaTypeFormatter GetPerRequestFormatterInstance(Type type, HttpRequest request, MediaTypeHeaderValue mediaType)
+        public MediaTypeFormatter GetPerRequestFormatterInstance(Type type, HttpRequest request, MediaTypeHeaderValue mediaType)
         {
+            Debugger.Break();
             this.entry = request.GetEntry();
             this.requestMessage = request;
-            return base.GetPerRequestFormatterInstance(type, request, mediaType);
+            //todo post .netcore change; is this right?
+            //new
+            if (type == (Type)null)
+                throw Error.NotAllowed("type");
+            if (request == null)
+                throw Error.NotAllowed("request");
+            return this;
+            //end new
+            //original
+            //            return base.GetPerRequestFormatterInstance(type, request, mediaType);
         }
 
         protected string ReadBodyFromStream(Stream readStream, HttpContent content)

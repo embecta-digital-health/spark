@@ -1,10 +1,14 @@
 using System;
-using System.Net.Http;
+using System.Web.Http;
+using Hl7.Fhir.Model;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 
 namespace Spark.Engine.ExceptionHandling
 {
     public interface IExceptionResponseMessageFactory
     {
-        HttpResponseMessage GetResponseMessage(Exception exception, HttpRequestMessage reques);
+        IActionResult GetResponseOutcome(Exception exception);
     }
 }

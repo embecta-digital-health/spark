@@ -38,8 +38,7 @@ namespace Spark.Engine.Formatters
                 throw new ArgumentNullException(nameof(selectedEncoding));
             }
 
-            HttpResponse response2 = context.HttpContext.Response;
-            response2.ContentType = "application/json";
+            context.HttpContext.Response.ContentType = "application/json";
 
 
             return Task.Factory.StartNew(() =>

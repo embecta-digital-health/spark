@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Net;
-using System.Net.Http;
 using System.Web.Http;
+using System.Web.Http.Results;
 using Hl7.Fhir.Model;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Spark.Engine.Core;
 using Spark.Engine.Extensions;
+using StatusCodeResult = Microsoft.AspNetCore.Mvc.StatusCodeResult;
 
 namespace Spark.Engine.ExceptionHandling
 {
@@ -12,45 +15,49 @@ namespace Spark.Engine.ExceptionHandling
     {
         private SparkException ex;
 
-        public HttpResponseMessage GetResponseMessage(Exception exception, HttpRequestMessage request)
+        public IActionResult GetResponseOutcome(Exception exception)
         {
             if (exception == null)
                 return null;
 
-            HttpResponseMessage response = null;
-            response = InternalCreateHttpResponseMessage(exception as SparkException, request) ??
-                InternalCreateHttpResponseMessage(exception as HttpResponseException, request) ??
-                InternalCreateHttpResponseMessage(exception, request);
-
-            return response;
+            
+            return InternalCreateResponse(exception as SparkException) ??
+                      InternalCreateResponse(exception as HttpResponseException) ??
+                      InternalCreateResponse(exception);
         }
 
-        private HttpResponseMessage InternalCreateHttpResponseMessage(SparkException exception, HttpRequestMessage request)
+        private IActionResult InternalCreateResponse(SparkException exception)
         {
             if (exception == null)
                 return null;
-
             OperationOutcome outcome = exception.Outcome ?? new OperationOutcome();
             outcome.AddAllInnerErrors(exception);
-            return request.CreateResponse(exception.StatusCode, outcome); ;
+            
+            //            return exceptionContext.Result.CreateResponse(exception.StatusCode, outcome);
+            return new ObjectResult(outcome){StatusCode = exception.StatusCode.GetHashCode()};
         }
 
-        private HttpResponseMessage InternalCreateHttpResponseMessage(HttpResponseException exception, HttpRequestMessage request)
+        private IActionResult InternalCreateResponse(HttpResponseException exception)
         {
             if (exception == null)
                 return null;
 
-            OperationOutcome outcome =  new OperationOutcome().AddError(exception.Response.ReasonPhrase);
-            return request.CreateResponse(exception.Response.StatusCode, outcome);
+            OperationOutcome outcome = new OperationOutcome().AddError(exception.Response.ReasonPhrase);
+//            return exceptionContext.Request.CreateResponse(exception.Response.StatusCode, outcome);
+            return new ObjectResult(outcome){StatusCode = exception.Response.StatusCode.GetHashCode()};
         }
 
-        private HttpResponseMessage InternalCreateHttpResponseMessage(Exception exception, HttpRequestMessage request)
+        private IActionResult InternalCreateResponse(Exception exception)
         {
             if (exception == null)
                 return null;
 
             OperationOutcome outcome = new OperationOutcome().AddAllInnerErrors(exception);
-            return request.CreateResponse(HttpStatusCode.InternalServerError, outcome);
+            //            return exceptionContext.Request.CreateResponse(HttpStatusCode.InternalServerError, outcome);
+            return new ObjectResult(outcome){StatusCode = HttpStatusCode.InternalServerError.GetHashCode()};
+//            return new BadRequestObjectResult(outcome);
+           
         }
     }
+
 }

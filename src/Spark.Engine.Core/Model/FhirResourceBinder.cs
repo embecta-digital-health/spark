@@ -26,7 +26,7 @@ namespace Spark.Engine.Model
         public FhirResourceBinder(IFhirStore db)
         {
             _db = db;
-            _fhirInputFormatter = new JsonFhirInputFormatter();
+//            _fhirInputFormatter = new JsonFhirInputFormatter();
         }
 
         public  Task BindModelAsync(ModelBindingContext bindingContext)

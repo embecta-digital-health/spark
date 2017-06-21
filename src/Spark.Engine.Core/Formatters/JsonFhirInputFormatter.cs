@@ -15,6 +15,8 @@ using Microsoft.VisualBasic;
 using Spark.Configuration;
 using Spark.Engine.Core;
 using System.IO;
+using System.Web.Http.ModelBinding;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Spark.Engine.Formatters
 {
@@ -26,13 +28,10 @@ namespace Spark.Engine.Formatters
     {
         public JsonFhirInputFormatter()
         {
-//            SupportedMediaTypes.Clear();
-//            foreach (string contentType in ContentType.JSON_CONTENT_HEADERS)
-//            {
-//                SupportedMediaTypes.Add(MediaTypeHeaderValue.Parse(contentType));
-//            }
-            SupportedMediaTypes.Insert(0, MediaTypeHeaderValue.Parse("text/fhir"));
-//            SupportedEncodings.Clear();
+            foreach (string contentType in ContentType.JSON_CONTENT_HEADERS)
+            {
+                SupportedMediaTypes.Add(MediaTypeHeaderValue.Parse(contentType));
+            }
             SupportedEncodings.Add(Encoding.UTF8);
             SupportedEncodings.Add(Encoding.Unicode);
         }
@@ -81,12 +80,12 @@ namespace Spark.Engine.Formatters
 
                     }
                 }
-                else
-                    throw Error.Internal("Cannot read unsupported type {0} from body", context.ModelName);
+                throw Error.Internal("Cannot read unsupported type {0} from body", context.ModelName);
             }
             catch (FormatException exception)
             {
                 throw Error.BadRequest("Body parsing failed: " + exception.Message);
+                
             }
         }
 
