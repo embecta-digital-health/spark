@@ -10,6 +10,7 @@ using Hl7.Fhir.Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using Spark.Core;
 using Spark.Engine.Core;
 using Spark.Engine.Extensions;
@@ -38,13 +39,13 @@ namespace Spark.Service
             this.searchParameters = searchParameters;
         }
 
-        public Bundle GetPage(string snapshotkey, int start)
+        public Bundle GetPage(string snapshotkey, int start, ClaimsPrincipal principal)
         {
             Snapshot snapshot = snapshotstore.GetSnapshot(snapshotkey);
-            return GetPage(snapshot, start);
+            return GetPage(snapshot, principal, start);
         }
 
-        public Bundle GetPage(Snapshot snapshot, int? start = null)
+        public Bundle GetPage(Snapshot snapshot, ClaimsPrincipal principal, int? start = null)
         {
             //if (pagesize > MAX_PAGE_SIZE) pagesize = MAX_PAGE_SIZE;
 
@@ -58,12 +59,12 @@ namespace Spark.Service
                     snapshot.Keys.Count(), snapshot.Id);
             }
 
-            return this.CreateBundle(snapshot, start);
+            return this.CreateBundle(snapshot, principal, start);
         }
 
-        public Bundle GetFirstPage(Snapshot snapshot)
+        public Bundle GetFirstPage(Snapshot snapshot, ClaimsPrincipal principal)
         {
-            Bundle bundle = this.GetPage(snapshot);
+            Bundle bundle = this.GetPage(snapshot,principal);
             return bundle;
         }
 
@@ -122,7 +123,7 @@ namespace Spark.Service
             return CreateSnapshot(Bundle.BundleType.Searchset, selflink, keys, sort, count, searchCommand.Include);
         }
 
-        public Bundle CreateBundle(Snapshot snapshot, int? start = null)
+        public Bundle CreateBundle(Snapshot snapshot, ClaimsPrincipal principal, int? start = null)
         {
             Bundle bundle = new Bundle();
             bundle.Type = snapshot.Type;
@@ -136,9 +137,9 @@ namespace Spark.Service
             }
 
             IList<string> keys = keysInBundle.Take(snapshot.CountParam??DEFAULT_PAGE_SIZE).ToList();
-            IList<Entry> entry = fhirStore.Get(keys, snapshot.SortBy).ToList();
+            IList<Entry> entry = fhirStore.Get(keys,snapshot.SortBy, principal).ToList();
 
-            IList<Entry> included = GetIncludesRecursiveFor(entry, snapshot.Includes);
+            IList<Entry> included = GetIncludesRecursiveFor(entry, snapshot.Includes, principal);
             entry.Append(included);
 
             transfer.Externalize(entry);
@@ -215,29 +216,29 @@ namespace Spark.Service
             }
         }
 
-        private IList<Entry> GetIncludesFor(IList<Entry> entries, IEnumerable<string> includes)
+        private IList<Entry> GetIncludesFor(IList<Entry> entries, IEnumerable<string> includes, ClaimsPrincipal principal)
         {
             if (includes == null) return new List<Entry>();
 
             IEnumerable<string> paths = includes.SelectMany(i => IncludeToPath(i)); 
             IList<string> identifiers = entries.GetResources().GetReferences(paths).Distinct().ToList();
 
-            IList<Entry> result = fhirStore.GetCurrent(identifiers, null).ToList();
+            IList<Entry> result = fhirStore.GetCurrent(identifiers, null, principal).ToList();
 
             return result;
         }
 
-        private IList<Entry> GetIncludesRecursiveFor(IList<Entry> entries, IEnumerable<string> includes)
+        private IList<Entry> GetIncludesRecursiveFor(IList<Entry> entries, IEnumerable<string> includes, ClaimsPrincipal principal)
         {
             IList<Entry> included = new List<Entry>();
 
-            var latest = GetIncludesFor(entries, includes);
+            var latest = GetIncludesFor(entries, includes,principal);
             int previouscount;
             do
             {
                 previouscount = included.Count;
                 included.AppendDistinct(latest);
-                latest = GetIncludesFor(latest, includes);
+                latest = GetIncludesFor(latest, includes, principal);
             }
             while (included.Count > previouscount);
             return included;
