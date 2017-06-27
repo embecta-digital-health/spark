@@ -1,15 +1,5 @@
-﻿/* 
- * Copyright (c) 2014, Furore (info@furore.com) and contributors
- * See the file CONTRIBUTORS for details.
- * 
- * This file is licensed under the BSD 3-Clause license
- * available at https://raw.github.com/furore-fhir/spark/master/LICENSE
- */
-
-using System;
+﻿using System;
 using System.Diagnostics;
-using System.Globalization;
-using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,7 +7,6 @@ using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Spark.Engine.Auxiliary;
-using Spark.Engine.Core;
 using Spark.Engine.Extensions;
 
 namespace Spark.Engine.Middleware
@@ -44,7 +33,7 @@ namespace Spark.Engine.Middleware
         {
 //            var ub = new UriBuilder(request.RequestUri);//pre.netCore
             var ub = new UriBuilder(request.GetDisplayUrl());
-            return ub.Path.Contains("Binary"); 
+            return ub.Path.Contains("Binary");
             // HACK: replace quick hack by solid solution.
         }
 
@@ -52,7 +41,7 @@ namespace Spark.Engine.Middleware
         {
 //            var ub = new UriBuilder(request.RequestUri);//pre.netCore
             var ub = new UriBuilder(request.GetDisplayUrl());
-            return ub.Path.Contains("_tags"); 
+            return ub.Path.Contains("_tags");
             // HACK: replace quick hack by solid solution.
         }
 
@@ -100,11 +89,11 @@ namespace Spark.Engine.Middleware
 //                    request.Headers.Replace("Accept", FhirMediaType.BinaryResource);
 //                }
             }
-          
-            await context.Response.WriteAsync(context.Response.ToString(),  cancellationToken);
+
+            await context.Response.WriteAsync(context.Response.ToString(), cancellationToken);
         }
     }
-    
+
     // Instead of using the general purpose DelegatingHandler, could we use IContentNegotiator?
 //    public class FhirContentNegotiator : IContentNegotiator
 //    {
@@ -113,5 +102,4 @@ namespace Spark.Engine.Middleware
 //            throw new NotImplementedException();
 //        }
 //    }
-
 }

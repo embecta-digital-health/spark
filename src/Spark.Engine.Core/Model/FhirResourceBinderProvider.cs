@@ -1,15 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using Hl7.Fhir.Model;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Binders;
 
 namespace Spark.Engine.Model
 {
-    public class FhirResourceBinderProvider: IModelBinderProvider
+    public class FhirResourceBinderProvider : IModelBinderProvider
     {
-
         public IModelBinder GetBinder(ModelBinderProviderContext context)
         {
             if (context == null)

@@ -1,11 +1,5 @@
 using System;
-using System.Diagnostics;
-using System.Net;
-using System.Net.Http;
 using System.Web.Http.ExceptionHandling;
-using System.Web.Http.Results;
-using Microsoft.AspNetCore.Http;
-using Spark.Engine.Core;
 
 namespace Spark.Engine.ExceptionHandling
 {
@@ -19,17 +13,17 @@ namespace Spark.Engine.ExceptionHandling
             this.exceptionResponseMessageFactory = exceptionResponseMessageFactory;
         }
 
-        public override bool ShouldHandle(ExceptionHandlerContext context)
-        {
-            return true;
-        }
-
         public override void Handle(ExceptionHandlerContext context)
         {
             throw new NotImplementedException();
 //            HttpResponse responseMessage = exceptionResponseMessageFactory.GetResponseOutcome(context.Exception,
 //                context);
 //            context.Result = new ResponseMessageResult(responseMessage);
+        }
+
+        public override bool ShouldHandle(ExceptionHandlerContext context)
+        {
+            return true;
         }
     }
 }

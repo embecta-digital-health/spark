@@ -1,18 +1,11 @@
 ﻿using System;
-using System.Diagnostics;
-using System.Text.Encodings.Web;
-using System.Threading.Tasks;
-using Hl7.Fhir.Model;
-using Microsoft.AspNetCore.Mvc.Internal;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
-using Microsoft.CSharp.RuntimeBinder;
-using Spark.Core;
-using Spark.Engine.Core;
-using Spark.Engine.Formatters;
-using Microsoft.AspNetCore.Mvc.Formatters;
-using System.Text;
-using Hl7.Fhir.Serialization;
 using System.IO;
+using System.Text;
+using System.Threading.Tasks;
+using Hl7.Fhir.Serialization;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Spark.Core;
+using Spark.Engine.Formatters;
 
 // ReSharper disable ArrangeTypeModifiers
 
@@ -29,7 +22,7 @@ namespace Spark.Engine.Model
 //            _fhirInputFormatter = new JsonFhirInputFormatter();
         }
 
-        public  Task BindModelAsync(ModelBindingContext bindingContext)
+        public Task BindModelAsync(ModelBindingContext bindingContext)
         {
             if (bindingContext == null)
             {
@@ -41,10 +34,7 @@ namespace Spark.Engine.Model
                 string bodyStr = reader.ReadToEnd();
                 var resource = FhirParser.ParseResourceFromJson(bodyStr);
                 bindingContext.Result = ModelBindingResult.Success(resource);
-
             }
-
-
 
 
             return Task.CompletedTask;

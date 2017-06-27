@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -11,12 +12,7 @@ using Hl7.Fhir.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.Net.Http.Headers;
-using Microsoft.VisualBasic;
-using Spark.Configuration;
 using Spark.Engine.Core;
-using System.IO;
-using System.Web.Http.ModelBinding;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Spark.Engine.Formatters
 {
@@ -46,16 +42,29 @@ namespace Spark.Engine.Formatters
             return false;
         }
 
-        public override Task<InputFormatterResult> ReadRequestBodyAsync(InputFormatterContext context, Encoding e)
+        public override bool Equals(object obj)
         {
-            return ReadAsync(context);
+            Debugger.Break();
+            return base.Equals(obj);
+        }
+
+        public override int GetHashCode()
+        {
+            Debugger.Break();
+            return base.GetHashCode();
+        }
+
+        public override IReadOnlyList<string> GetSupportedContentTypes(string contentType, Type objectType)
+        {
+            Debugger.Break();
+            return base.GetSupportedContentTypes(contentType, objectType);
         }
 
         public override Task<InputFormatterResult> ReadAsync(InputFormatterContext context)
         {
             if (context == null) throw new ArgumentNullException(nameof(context));
 
-            Debugger.Break();
+//            Debugger.Break();
             //todo do we need this?
             HttpRequest request = context.HttpContext.Request;
             if (request.ContentLength == 0)
@@ -76,8 +85,6 @@ namespace Spark.Engine.Formatters
                         string bodyStr = reader.ReadToEnd();
                         var resource = FhirParser.ParseResourceFromJson(bodyStr);
                         return InputFormatterResult.SuccessAsync(resource);
-
-
                     }
                 }
                 throw Error.Internal("Cannot read unsupported type {0} from body", context.ModelName);
@@ -85,8 +92,12 @@ namespace Spark.Engine.Formatters
             catch (FormatException exception)
             {
                 throw Error.BadRequest("Body parsing failed: " + exception.Message);
-                
             }
+        }
+
+        public override Task<InputFormatterResult> ReadRequestBodyAsync(InputFormatterContext context, Encoding e)
+        {
+            return ReadAsync(context);
         }
 
         public override string ToString()
@@ -94,25 +105,6 @@ namespace Spark.Engine.Formatters
             Debugger.Break();
             return base.ToString();
         }
-
-        public override bool Equals(object obj)
-        {
-            Debugger.Break();
-            return base.Equals(obj);
-        }
-
-        public override int GetHashCode()
-        {
-            Debugger.Break();
-            return base.GetHashCode();
-        }
-
-        public override IReadOnlyList<string> GetSupportedContentTypes(string contentType, Type objectType)
-        {
-            Debugger.Break();
-            return base.GetSupportedContentTypes(contentType, objectType);
-        }
-
     }
 //        }
 //            headers.ContentType = FhirMediaType.GetMediaTypeHeaderValue(type, ResourceFormat.Json);
