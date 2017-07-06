@@ -1,8 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Net;
 using Hl7.Fhir.Model;
+using Spark.Engine.Core;
 
-namespace Spark.Engine.Core
+namespace Spark.Core
 {
     public static class Error
     {

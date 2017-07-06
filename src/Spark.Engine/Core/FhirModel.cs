@@ -156,7 +156,7 @@ namespace Spark.Engine.Core
                 return _searchParameters;
             }
         }
-
+        
         public IEnumerable<string> SupportedResourceNames
         {
             get

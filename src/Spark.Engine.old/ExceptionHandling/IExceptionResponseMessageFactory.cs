@@ -1,10 +1,10 @@
 using System;
-using Microsoft.AspNetCore.Mvc;
+using System.Net.Http;
 
 namespace Spark.Engine.ExceptionHandling
 {
     public interface IExceptionResponseMessageFactory
     {
-        IActionResult GetResponseOutcome(Exception exception);
+        HttpResponseMessage GetResponseMessage(Exception exception, HttpRequestMessage reques);
     }
 }

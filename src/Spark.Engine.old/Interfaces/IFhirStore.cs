@@ -8,7 +8,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Security.Claims;
 using Spark.Engine.Core;
 
 namespace Spark.Core
@@ -24,12 +23,12 @@ namespace Spark.Core
         // BundleEntries
         bool Exists(IKey key);
 
-        Entry Get(IKey key, ClaimsPrincipal principal);
-        IList<Entry> Get(IEnumerable<string> identifiers, string sortby, ClaimsPrincipal principal);
-        IList<Entry> GetCurrent(IEnumerable<string> identifiers, string sortby, ClaimsPrincipal principal);
+        Entry Get(IKey key);
+        IList<Entry> Get(IEnumerable<string> identifiers, string sortby);
+        IList<Entry> GetCurrent(IEnumerable<string> identifiers, string sortby);
 
-        void Add(Entry entry, ClaimsPrincipal principal);
-        void Add(IEnumerable<Entry> entries, ClaimsPrincipal principal);
+        void Add(Entry entry);
+        void Add(IEnumerable<Entry> entries);
 
         void Replace(Entry entry);
 

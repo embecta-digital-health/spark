@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Security.Claims;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
 using Spark.Core;
@@ -57,22 +58,22 @@ namespace Spark.Service
             //TODO: Use FhirModel instead of ModelInfo for the searchparameters.
         }
 
-        public FhirResponse Read(Key key, ConditionalHeaderParameters parameters = null)
+        public FhirResponse Read(Key key, ClaimsPrincipal principal, ConditionalHeaderParameters parameters = null)
         {
             _log.ServiceMethodCalled("read");
 
             ValidateKey(key);
 
-            return responseFactory.GetFhirResponse(key, parameters);
+            return responseFactory.GetFhirResponse(key, principal, parameters);
         }
 
-        public FhirResponse ReadMeta(Key key)
+        public FhirResponse ReadMeta(Key key, ClaimsPrincipal principal)
         {
             _log.ServiceMethodCalled("readmeta");
 
             ValidateKey(key);
 
-            Entry entry = fhirStore.Get(key);
+            Entry entry = fhirStore.Get(key, principal);
 
             if (entry == null)
             {
@@ -101,9 +102,9 @@ namespace Spark.Service
             Validate.Key(key);
         }
 
-        public FhirResponse AddMeta(Key key, Parameters parameters)
+        public FhirResponse AddMeta(Key key, Parameters parameters, ClaimsPrincipal principal)
         {
-            Entry entry = fhirStore.Get(key);
+            Entry entry = fhirStore.Get(key, principal);
 
             if (entry == null)
             {
@@ -115,7 +116,7 @@ namespace Spark.Service
             }
 
             entry.Resource.AffixTags(parameters);
-            Store(entry);
+            Store(entry, principal);
 
             return Respond.WithMeta(entry);
         }
@@ -131,13 +132,13 @@ namespace Spark.Service
         /// If the version referred to is actually one where the resource was deleted, the server should return a 
         /// 410 status code. 
         /// </remarks>
-        public FhirResponse VersionRead(Key key)
+        public FhirResponse VersionRead(Key key, ClaimsPrincipal principal)
         {
             _log.ServiceMethodCalled("versionread");
 
             ValidateKey(key, true);
 
-            return responseFactory.GetFhirResponse(key);
+            return responseFactory.GetFhirResponse(key,principal);
         }
 
         /// <summary>
@@ -149,7 +150,7 @@ namespace Spark.Service
         /// Returns 
         ///     201 Created - on successful creation
         /// </returns>
-        public FhirResponse Create(IKey key, Resource resource)
+        public FhirResponse Create(IKey key, Resource resource, ClaimsPrincipal principal)
         {
             Validate.Key(key);
             Validate.ResourceType(key, resource);
@@ -160,16 +161,16 @@ namespace Spark.Service
             Entry entry = Entry.POST(key, resource);
             transfer.Internalize(entry);
 
-            Store(entry);
+            Store(entry, principal);
 
             // API: The api demands a body. This is wrong
             //CCR: The documentations specifies that servers should honor the Http return preference header
-            Entry result = fhirStore.Get(entry.Key);
+            Entry result = fhirStore.Get(entry.Key, principal);
             transfer.Externalize(result);
             return Respond.WithResource(HttpStatusCode.Created, result);
         }
 
-        public FhirResponse Put(IKey key, Resource resource)
+        public FhirResponse Put(IKey key, Resource resource, ClaimsPrincipal principal)
         {
             Validate.Key(key);
             Validate.ResourceType(key, resource);
@@ -178,17 +179,17 @@ namespace Spark.Service
             Validate.HasResourceId(resource);
             Validate.IsResourceIdEqual(key, resource);
 
-            Entry current = fhirStore.Get(key);
+            Entry current = fhirStore.Get(key, principal);
 
             Entry entry = Entry.PUT(key, resource);
             transfer.Internalize(entry);
 
 
-            Store(entry);
+            Store(entry,principal);
 
             // API: The api demands a body. This is wrong
             //CCR: The documentations specifies that servers should honor the Http return preference header
-            Entry result = fhirStore.Get(entry.Key);
+            Entry result = fhirStore.Get(entry.Key, principal);
             transfer.Externalize(result);
 
             return Respond.WithResource(current != null ? HttpStatusCode.OK : HttpStatusCode.Created, result);
@@ -200,7 +201,7 @@ namespace Spark.Service
             throw new NotImplementedException("This will be implemented after search is DSTU2");
         }
 
-        public FhirResponse Search(string type, SearchParams searchCommand)
+        public FhirResponse Search(string type, SearchParams searchCommand, ClaimsPrincipal principal)
         {
             _log.ServiceMethodCalled("search");
 
@@ -217,7 +218,7 @@ namespace Spark.Service
             Uri link = builder.Uri;
 
             var snapshot = pager.CreateSnapshot(link, results, searchCommand);
-            Bundle bundle = pager.GetFirstPage(snapshot);
+            Bundle bundle = pager.GetFirstPage(snapshot, principal);
 
             if (results.HasIssues)
             {
@@ -289,16 +290,16 @@ namespace Spark.Service
         //    return Respond.WithEntry(HttpStatusCode.OK, interaction);
         //}
 
-        public FhirResponse VersionSpecificUpdate(IKey versionedkey, Resource resource)
+        public FhirResponse VersionSpecificUpdate(IKey versionedkey, Resource resource, ClaimsPrincipal principal)
         {
             Validate.HasTypeName(versionedkey);
             Validate.HasVersion(versionedkey);
 
             Key key = versionedkey.WithoutVersion();
-            Entry current = fhirStore.Get(key);
+            Entry current = fhirStore.Get(key, principal);
             Validate.IsSameVersion(current.Key, versionedkey);
 
-            return this.Put(key, resource);
+            return this.Put(key, resource, principal);
         }
 
         /// <summary>
@@ -306,22 +307,22 @@ namespace Spark.Service
         /// If a VersionId is included a version specific update will be attempted.
         /// </summary>
         /// <returns>200 OK (on success)</returns>
-        public FhirResponse Update(IKey key, Resource resource)
+        public FhirResponse Update(IKey key, Resource resource, ClaimsPrincipal principal)
         {
             if (key.HasVersionId())
             {
-                return this.VersionSpecificUpdate(key, resource);
+                return this.VersionSpecificUpdate(key, resource, principal);
             }
             else
             {
-                return this.Put(key, resource);
+                return this.Put(key, resource, principal);
             }
         }
 
-        public FhirResponse ConditionalUpdate(Key key, Resource resource, SearchParams _params)
+        public FhirResponse ConditionalUpdate(Key key, Resource resource, SearchParams _params, ClaimsPrincipal principal)
         {
             Key existing = fhirIndex.FindSingle(key.TypeName, _params).WithoutVersion();
-            return this.Update(existing, resource);
+            return this.Update(existing, resource, principal);
         }
 
         /// <summary>
@@ -335,12 +336,12 @@ namespace Spark.Service
         ///   * If the resource does not exist on the server, the server must return 404 (Not found).
         ///   * Performing this operation on a resource that is already deleted has no effect, and should return 204 (No Content).
         /// </remarks>
-        public FhirResponse Delete(IKey key)
+        public FhirResponse Delete(IKey key, ClaimsPrincipal principal)
         {
             Validate.Key(key);
             Validate.HasNoVersion(key);
 
-            Entry current = fhirStore.Get(key);
+            Entry current = fhirStore.Get(key, principal);
 
             if (current != null && current.IsPresent)
             {
@@ -349,7 +350,7 @@ namespace Spark.Service
                 key = keyGenerator.NextHistoryKey(key);
                 Entry deleted = Entry.DELETE(key, DateTimeOffset.UtcNow);
 
-                Store(deleted);
+                Store(deleted, principal);
             }
             return Respond.WithCode(HttpStatusCode.NoContent);
         }
@@ -370,19 +371,19 @@ namespace Spark.Service
             //return Respond.WithCode(HttpStatusCode.NoContent);
         }
 
-        public FhirResponse HandleInteraction(Entry interaction)
+        public FhirResponse HandleInteraction(Entry interaction, ClaimsPrincipal principal)
         {
             switch (interaction.Method)
             {
-                case Bundle.HTTPVerb.PUT: return this.Update(interaction.Key, interaction.Resource);
-                case Bundle.HTTPVerb.POST: return this.Create(interaction.Key, interaction.Resource);
-                case Bundle.HTTPVerb.DELETE: return this.Delete(interaction.Key);
+                case Bundle.HTTPVerb.PUT: return this.Update(interaction.Key, interaction.Resource, principal);
+                case Bundle.HTTPVerb.POST: return this.Create(interaction.Key, interaction.Resource, principal);
+                case Bundle.HTTPVerb.DELETE: return this.Delete(interaction.Key, principal);
                 default: return Respond.Success;
             }
         }
 
         // These should eventually be Interaction! = FhirRequests. Not Entries.
-        public FhirResponse Transaction(IList<Entry> interactions)
+        public FhirResponse Transaction(IList<Entry> interactions, ClaimsPrincipal principal)
         {
             transfer.Internalize(interactions);
 
@@ -390,7 +391,7 @@ namespace Spark.Service
 
             foreach (Entry interaction in interactions)
             {
-                FhirResponse response = HandleInteraction(interaction);
+                FhirResponse response = HandleInteraction(interaction, principal);
 
                 if (!response.IsValid) return response;
                 resources.Add(response.Resource);
@@ -403,12 +404,12 @@ namespace Spark.Service
             return Respond.WithBundle(bundle);
         }
 
-        public FhirResponse Transaction(Bundle bundle)
+        public FhirResponse Transaction(Bundle bundle, ClaimsPrincipal principal)
         {
             var interactions = localhost.GetEntries(bundle);
             transfer.Internalize(interactions);
 
-            fhirStore.Add(interactions);
+            fhirStore.Add(interactions, principal);
             fhirIndex.Process(interactions);
             transfer.Externalize(interactions);
 
@@ -417,33 +418,33 @@ namespace Spark.Service
             return Respond.WithBundle(bundle);
         }
 
-        public FhirResponse History(HistoryParameters parameters)
+        public FhirResponse History(HistoryParameters parameters, ClaimsPrincipal principal)
         {
             var since = parameters.Since ?? DateTimeOffset.MinValue;
             Uri link = localhost.Uri(RestOperation.HISTORY);
 
             IEnumerable<string> keys = fhirStore.History(since);
             var snapshot = pager.CreateSnapshot(Bundle.BundleType.History, link, keys, parameters.SortBy, parameters.Count, null);
-            Bundle bundle = pager.GetFirstPage(snapshot);
+            Bundle bundle = pager.GetFirstPage(snapshot, principal);
 
             // DSTU2: export
             // exporter.Externalize(bundle);
             return Respond.WithBundle(bundle);
         }
 
-        public FhirResponse History(string type, HistoryParameters parameters)
+        public FhirResponse History(string type, HistoryParameters parameters, ClaimsPrincipal principal)
         {
             Validate.TypeName(type);
             Uri link = localhost.Uri(type, RestOperation.HISTORY);
 
             IEnumerable<string> keys = fhirStore.History(type, parameters.Since);
             var snapshot = pager.CreateSnapshot(Bundle.BundleType.History, link, keys, parameters.SortBy, parameters.Count, null);
-            Bundle bundle = pager.GetFirstPage(snapshot);
+            Bundle bundle = pager.GetFirstPage(snapshot, principal);
 
             return Respond.WithResource(bundle);
         }
 
-        public FhirResponse History(Key key, HistoryParameters parameters)
+        public FhirResponse History(Key key, HistoryParameters parameters, ClaimsPrincipal principal)
         {
             if (!fhirStore.Exists(key))
             {
@@ -454,7 +455,7 @@ namespace Spark.Service
 
             IEnumerable<string> keys = fhirStore.History(key, parameters.Since);
             var snapshot = pager.CreateSnapshot(Bundle.BundleType.History, link, keys, parameters.SortBy, parameters.Count);
-            Bundle bundle = pager.GetFirstPage(snapshot);
+            Bundle bundle = pager.GetFirstPage(snapshot, principal);
 
             return Respond.WithResource(key, bundle);
         }
@@ -664,15 +665,15 @@ namespace Spark.Service
             //    return (ResourceEntry)conformance;
         }
 
-        public FhirResponse GetPage(string snapshotkey, int index)
+        public FhirResponse GetPage(string snapshotkey, int index, ClaimsPrincipal principal)
         {
-            Bundle bundle = pager.GetPage(snapshotkey, index);
+            Bundle bundle = pager.GetPage(snapshotkey, index, principal);
             return Respond.WithBundle(bundle);
         }
 
-        private void Store(Entry entry)
+        private void Store(Entry entry, ClaimsPrincipal principal)
         {
-            fhirStore.Add(entry);
+            fhirStore.Add(entry, principal);
 
             //CK: try the new indexing service.
             if (_indexService != null)

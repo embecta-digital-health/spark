@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Claims;
 using Spark.Core;
 using Spark.Engine.Core;
 using Spark.Engine.Extensions;
@@ -22,9 +21,9 @@ namespace Spark.Engine.FhirResponseFactory
             this.interceptorRunner = interceptorRunner;
         }
 
-        public FhirResponse GetFhirResponse(Key key, ClaimsPrincipal principal, IEnumerable<object> parameters = null)
+        public FhirResponse GetFhirResponse(Key key, IEnumerable<object> parameters = null)
         {
-            Entry entry = fhirStore.Get(key, principal);
+            Entry entry = fhirStore.Get(key);
 
             if (entry == null)
                 return Respond.NotFound(key);
@@ -48,9 +47,9 @@ namespace Spark.Engine.FhirResponseFactory
             return response ?? Respond.WithResource(entry);
         }
 
-        public FhirResponse GetFhirResponse(Key key, ClaimsPrincipal principal, params object[] parameters)
+        public FhirResponse GetFhirResponse(Key key, params object[] parameters)
         {
-            return GetFhirResponse(key, principal, parameters.ToList());
+            return GetFhirResponse(key, parameters.ToList());
         }
 
         public FhirResponse GetFhirResponse(Entry entry, params object[] parameters)
