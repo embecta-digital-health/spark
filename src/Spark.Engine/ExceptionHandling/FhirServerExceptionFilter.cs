@@ -7,17 +7,18 @@
  */
 
 
-using Hl7.Fhir.Model;
+using System;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.Logging;
-using Spark.Engine.ExceptionHandling;
+using Microsoft.Extensions.Options;
+using Mindscape.Raygun4Net;
 using ExceptionFilterAttribute = Microsoft.AspNetCore.Mvc.Filters.ExceptionFilterAttribute;
 
-namespace Spark.Filters
+namespace Spark.Engine.ExceptionHandling
 {
     public class FhirServerExceptionFilter : ExceptionFilterAttribute
     {
@@ -25,11 +26,15 @@ namespace Spark.Filters
         private readonly IHostingEnvironment _hostingEnvironment;
         private readonly IModelMetadataProvider _modelMetadataProvider;
         private readonly ILogger<FhirServerExceptionFilter> _logger;
+        private readonly IRaygunAspNetCoreClientProvider _clientProvider;
+        private readonly IOptions<RaygunSettings> _settings;
 
-        public FhirServerExceptionFilter(ILogger<FhirServerExceptionFilter> logger)//, IHostingEnvironment hostingEnvironment, IModelMetadataProvider modelMetadataProvider)
+        public FhirServerExceptionFilter(ILogger<FhirServerExceptionFilter> logger, IRaygunAspNetCoreClientProvider clientProvider, IOptions<RaygunSettings> raygunSettings)//, IHostingEnvironment hostingEnvironment, IModelMetadataProvider modelMetadataProvider)
         {
             _logger = logger;
             _exceptionResponseMessageFactory = new ExceptionResponseMessageFactory();
+            _clientProvider = clientProvider;
+            _settings = raygunSettings;
 //            _hostingEnvironment = hostingEnvironment;
 //            _modelMetadataProvider = modelMetadataProvider;
         }
@@ -43,9 +48,12 @@ namespace Spark.Filters
 
             _logger.LogError("From " + this.GetType().Name + ": " + exceptionContext.Exception.Message);
             IActionResult actionResult = _exceptionResponseMessageFactory.GetResponseOutcome(exceptionContext.Exception);
+            RaygunClient raygunClient = _clientProvider.GetClient(_settings.Value, exceptionContext.HttpContext);
+            raygunClient.SendInBackground(exceptionContext.Exception);
             exceptionContext.Result = (actionResult);
 
-            
+
+
             //            if (!_hostingEnvironment.IsDevelopment())
 //            {
 //                 do nothing

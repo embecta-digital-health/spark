@@ -17,7 +17,6 @@ namespace Spark.Engine.ExceptionHandling
             if (exception == null)
                 return null;
 
-
             return InternalCreateResponse(exception as SparkException) ??
                    InternalCreateResponse(exception as HttpResponseException) ??
                    InternalCreateResponse(exception);
