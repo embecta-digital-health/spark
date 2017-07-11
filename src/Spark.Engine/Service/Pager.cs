@@ -27,7 +27,7 @@ namespace Spark.Service
         Transfer transfer;
         IList<ModelInfo.SearchParamDefinition> searchParameters;
 
-        public const int MAX_PAGE_SIZE = 100;
+        public const int MAX_PAGE_SIZE = 700;
         public const int DEFAULT_PAGE_SIZE = 20;
 
         public Pager(IFhirStore fhirStore, ISnapshotStore snapshotstore, ILocalhost localhost, Transfer transfer, List<ModelInfo.SearchParamDefinition> searchParameters)
@@ -228,7 +228,7 @@ namespace Spark.Service
             return result;
         }
 
-        private IList<Entry> GetIncludesRecursiveFor(IList<Entry> entries, IEnumerable<string> includes, ClaimsPrincipal principal)
+        public IList<Entry> GetIncludesRecursiveFor(IList<Entry> entries, IEnumerable<string> includes, ClaimsPrincipal principal)
         {
             IList<Entry> included = new List<Entry>();
 

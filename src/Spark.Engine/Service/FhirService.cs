@@ -212,14 +212,32 @@ namespace Spark.Service
             {
                 throw new SparkException(HttpStatusCode.BadRequest, results.Outcome);
             }
+            var bundle = new Bundle();
 
-            UriBuilder builder = new UriBuilder(localhost.Uri(type));
-            builder.Query = results.UsedParameters;
-            Uri link = builder.Uri;
+            if (searchCommand.Count == 0)
+            {
+                bundle.Type = Bundle.BundleType.Batch;
+                bundle.Total = results.Count;
+                bundle.Id = UriHelper.CreateUuid().ToString();
+                //todo use story by (see CouchFhirStore Get method)
+                List<Entry> entry = fhirStore.Get(results.ToArray(), null, principal).ToList();
+                IList<Entry> included = pager.GetIncludesRecursiveFor(entry, searchCommand.Include, principal);
+                entry.Append(included);
 
-            var snapshot = pager.CreateSnapshot(link, results, searchCommand);
-            Bundle bundle = pager.GetFirstPage(snapshot, principal);
+                transfer.Externalize(entry);
+                bundle.Append(entry);
+            }
+            else
+            {
 
+
+                UriBuilder builder = new UriBuilder(localhost.Uri(type));
+                builder.Query = results.UsedParameters;
+                Uri link = builder.Uri;
+
+                var snapshot = pager.CreateSnapshot(link, results, searchCommand);
+                bundle = pager.GetFirstPage(snapshot, principal);
+            }
             if (results.HasIssues)
             {
                 bundle.AddResourceEntry(results.Outcome, new Uri("outcome/1", UriKind.Relative).ToString());
