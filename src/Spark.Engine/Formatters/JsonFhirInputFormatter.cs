@@ -44,19 +44,16 @@ namespace Spark.Engine.Formatters
 
         public override bool Equals(object obj)
         {
-            Debugger.Break();
             return base.Equals(obj);
         }
 
         public override int GetHashCode()
         {
-            Debugger.Break();
             return base.GetHashCode();
         }
 
         public override IReadOnlyList<string> GetSupportedContentTypes(string contentType, Type objectType)
         {
-            Debugger.Break();
             return base.GetSupportedContentTypes(contentType, objectType);
         }
 
@@ -64,7 +61,6 @@ namespace Spark.Engine.Formatters
         {
             if (context == null) throw new ArgumentNullException(nameof(context));
 
-//            Debugger.Break();
             //todo do we need this?
             HttpRequest request = context.HttpContext.Request;
             if (request.ContentLength == 0)
@@ -102,7 +98,6 @@ namespace Spark.Engine.Formatters
 
         public override string ToString()
         {
-            Debugger.Break();
             return base.ToString();
         }
     }

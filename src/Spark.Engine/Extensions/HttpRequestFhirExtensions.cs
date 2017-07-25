@@ -139,7 +139,6 @@ namespace Spark.Engine.Extensions
             {
                 return request.CreateResponse(fhir.StatusCode);
             }
-            Debugger.Break();
             throw new NotImplementedException();
         }
 
@@ -157,7 +156,6 @@ namespace Spark.Engine.Extensions
 
         public static HttpResponse CreateResponse(this HttpRequest request, HttpStatusCode exceptionStatusCode, OperationOutcome outcome)
         {
-            Debugger.Break();
             throw new NotImplementedException();
         }
 

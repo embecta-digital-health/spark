@@ -22,7 +22,6 @@ namespace Spark.Engine.Extensions
     {
         public static void ClearNamedHeaders(HttpRequest request, string headerName)
         {
-            Debugger.Break();//~new untested code
             IHeaderDictionary newHeaders = new HeaderDictionary();
             foreach (KeyValuePair<string, StringValues> keyValuePair in request.Headers)
             {

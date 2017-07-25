@@ -30,7 +30,7 @@ namespace Spark.Engine.Extensions
 
         public static void AddFhirExceptionHandling(this HttpConfiguration config)
         {
-//            config.Filters.Add(new FhirServerExceptionFilter(new ExceptionResponseMessageFactory()));
+//            config.Filters.Add(new FhirGlobalExceptionFilter(new ExceptionResponseMessageFactory()));
 //            config.Services.Replace(typeof(IExceptionHandler), new FhirGlobalExceptionHandler(new ExceptionResponseMessageFactory()));
         }
         

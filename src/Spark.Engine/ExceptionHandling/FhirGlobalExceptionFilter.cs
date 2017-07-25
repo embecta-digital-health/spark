@@ -20,16 +20,16 @@ using ExceptionFilterAttribute = Microsoft.AspNetCore.Mvc.Filters.ExceptionFilte
 
 namespace Spark.Engine.ExceptionHandling
 {
-    public class FhirServerExceptionFilter : ExceptionFilterAttribute
+    public class FhirGlobalExceptionFilter : ExceptionFilterAttribute
     {
         private static IExceptionResponseMessageFactory _exceptionResponseMessageFactory;
         private readonly IHostingEnvironment _hostingEnvironment;
         private readonly IModelMetadataProvider _modelMetadataProvider;
-        private readonly ILogger<FhirServerExceptionFilter> _logger;
+        private readonly ILogger<FhirGlobalExceptionFilter> _logger;
         private readonly IRaygunAspNetCoreClientProvider _clientProvider;
         private readonly IOptions<RaygunSettings> _settings;
 
-        public FhirServerExceptionFilter(ILogger<FhirServerExceptionFilter> logger, IRaygunAspNetCoreClientProvider clientProvider, IOptions<RaygunSettings> raygunSettings)//, IHostingEnvironment hostingEnvironment, IModelMetadataProvider modelMetadataProvider)
+        public FhirGlobalExceptionFilter(ILogger<FhirGlobalExceptionFilter> logger, IRaygunAspNetCoreClientProvider clientProvider, IOptions<RaygunSettings> raygunSettings)//, IHostingEnvironment hostingEnvironment, IModelMetadataProvider modelMetadataProvider)
         {
             _logger = logger;
             _exceptionResponseMessageFactory = new ExceptionResponseMessageFactory();

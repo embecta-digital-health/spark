@@ -68,7 +68,6 @@ namespace Spark.Formatters
 //        public override MediaTypeFormatter GetPerRequestFormatterInstance(Type type, HttpRequest request, MediaTypeHeaderValue mediaType)
         public MediaTypeFormatter GetPerRequestFormatterInstance(Type type, HttpRequest request, MediaTypeHeaderValue mediaType)
         {
-            Debugger.Break();
             this.entry = request.GetEntry();
             this.requestMessage = request;
             //todo post .netcore change; is this right?
