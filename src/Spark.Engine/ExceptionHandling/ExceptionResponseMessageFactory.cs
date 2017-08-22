@@ -15,7 +15,7 @@ namespace Spark.Engine.ExceptionHandling
         public IActionResult GetResponseOutcome(Exception exception)
         {
             if (exception == null)
-                return null;
+                return new BadRequestResult();
 
             return InternalCreateResponse(exception as SparkException) ??
                    InternalCreateResponse(exception as HttpResponseException) ??
@@ -25,7 +25,7 @@ namespace Spark.Engine.ExceptionHandling
         private IActionResult InternalCreateResponse(SparkException exception)
         {
             if (exception == null)
-                return null;
+                return new BadRequestResult();
             OperationOutcome outcome = exception.Outcome ?? new OperationOutcome();
             outcome.AddAllInnerErrors(exception);
 
@@ -36,7 +36,7 @@ namespace Spark.Engine.ExceptionHandling
         private IActionResult InternalCreateResponse(HttpResponseException exception)
         {
             if (exception == null)
-                return null;
+                return new BadRequestResult();
 
             OperationOutcome outcome = new OperationOutcome().AddError(exception.Response.ReasonPhrase);
 //            return exceptionContext.Request.CreateResponse(exception.Response.StatusCode, outcome);
@@ -46,7 +46,7 @@ namespace Spark.Engine.ExceptionHandling
         private IActionResult InternalCreateResponse(Exception exception)
         {
             if (exception == null)
-                return null;
+                return new BadRequestResult();
 
             OperationOutcome outcome = new OperationOutcome().AddAllInnerErrors(exception);
             //            return exceptionContext.Request.CreateResponse(HttpStatusCode.InternalServerError, outcome);
