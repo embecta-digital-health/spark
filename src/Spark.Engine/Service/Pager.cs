@@ -138,10 +138,11 @@ namespace Spark.Service
 
             IList<string> keys = keysInBundle.Take(snapshot.CountParam??DEFAULT_PAGE_SIZE).ToList();
             IList<Entry> entry = fhirStore.Get(keys,snapshot.SortBy, principal).ToList();
-
-            IList<Entry> included = GetIncludesRecursiveFor(entry, snapshot.Includes, principal);
-            entry.Append(included);
-
+            if (snapshot.Includes.Count != 0)
+            {
+                IList<Entry> included = GetIncludesRecursiveFor(entry, snapshot.Includes, principal);
+                entry.Append(included);
+            }
             transfer.Externalize(entry);
             bundle.Append(entry);
             BuildLinks(bundle, snapshot, start);
@@ -220,12 +221,14 @@ namespace Spark.Service
         {
             if (includes == null) return new List<Entry>();
 
-            IEnumerable<string> paths = includes.SelectMany(i => IncludeToPath(i)); 
+            IEnumerable<string> enumerable = includes as string[] ?? includes.ToArray();
+            IEnumerable<string> paths = enumerable.SelectMany(i => IncludeToPath(i)); 
             IList<string> identifiers = entries.GetResources().GetReferences(paths).Distinct().ToList();
-
-            IList<Entry> result = fhirStore.GetCurrent(identifiers, null, principal).ToList();
-
-            return result;
+            if (enumerable.Count() != 0)
+            {
+                return fhirStore.GetCurrent(identifiers, null, principal).ToList();
+            }
+            return null;
         }
 
         public IList<Entry> GetIncludesRecursiveFor(IList<Entry> entries, IEnumerable<string> includes, ClaimsPrincipal principal)
