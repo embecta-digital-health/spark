@@ -221,8 +221,11 @@ namespace Spark.Service
                 bundle.Id = UriHelper.CreateUuid().ToString();
                 //todo use story by (see CouchFhirStore Get method)
                 List<Entry> entry = fhirStore.Get(results.ToArray(), null, principal).ToList();
-                IList<Entry> included = pager.GetIncludesRecursiveFor(entry, searchCommand.Include, principal);
-                entry.Append(included);
+                if (searchCommand.Include.Count != 0)
+                {
+                                    IList<Entry> included = pager.GetIncludesRecursiveFor(entry, searchCommand.Include, principal);
+                                    entry.Append(included);
+                }
 
                 transfer.Externalize(entry);
                 bundle.Append(entry);
