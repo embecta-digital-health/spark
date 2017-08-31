@@ -213,7 +213,10 @@ namespace Spark.Service
                 throw new SparkException(HttpStatusCode.BadRequest, results.Outcome);
             }
             var bundle = new Bundle();
-
+            if (results.Count == 0)
+            {
+                return Respond.NotFound(null);
+            }
             if (searchCommand.Count == 0)
             {
                 bundle.Type = Bundle.BundleType.Batch;
