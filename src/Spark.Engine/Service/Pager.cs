@@ -15,6 +15,7 @@ using Spark.Core;
 using Spark.Engine.Core;
 using Spark.Engine.Extensions;
 using Hl7.Fhir.Rest;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Spark.Service
 {
@@ -26,17 +27,20 @@ namespace Spark.Service
         ILocalhost localhost;
         Transfer transfer;
         IList<ModelInfo.SearchParamDefinition> searchParameters;
+        private IAuthorizationService _authService;
 
-        public const int MAX_PAGE_SIZE = 700;
-        public const int DEFAULT_PAGE_SIZE = 20;
+        public const int MAX_PAGE_SIZE = 700;//todo move to settings
+        public const int DEFAULT_PAGE_SIZE = 20;//todo move to settings
 
-        public Pager(IFhirStore fhirStore, ISnapshotStore snapshotstore, ILocalhost localhost, Transfer transfer, List<ModelInfo.SearchParamDefinition> searchParameters)
+        public Pager(IFhirStore fhirStore, ISnapshotStore snapshotstore, ILocalhost localhost, Transfer transfer, 
+            List<ModelInfo.SearchParamDefinition> searchParameters, IAuthorizationService authService)
         {
             this.fhirStore = fhirStore;
             this.snapshotstore = snapshotstore;
             this.localhost = localhost;
             this.transfer = transfer;
             this.searchParameters = searchParameters;
+            _authService = authService;
         }
 
         public Bundle GetPage(string snapshotkey, int start, ClaimsPrincipal principal)
