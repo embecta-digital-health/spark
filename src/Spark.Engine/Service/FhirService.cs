@@ -12,6 +12,7 @@ using System.Net;
 using System.Security.Claims;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Microsoft.AspNetCore.Authorization;
 using Spark.Core;
 using Spark.Engine.Core;
 using Spark.Engine.Extensions;
@@ -41,7 +42,7 @@ namespace Spark.Service
 
         private SparkEngineEventSource _log = SparkEngineEventSource.Log;
 
-        public FhirService(ILocalhost localhost, IFhirStore fhirStore, ISnapshotStore snapshotStore, IGenerator keyGenerator,
+        public FhirService(ILocalhost localhost, IFhirStore fhirStore, ISnapshotStore snapshotStore, IGenerator keyGenerator, IAuthorizationService authService,
             IFhirIndex fhirIndex, IServiceListener serviceListener, IFhirResponseFactory responseFactory, IndexService indexService)
         {
             this.localhost = localhost;
@@ -54,7 +55,7 @@ namespace Spark.Service
             _indexService = indexService;
 
             transfer = new Transfer(this.keyGenerator, localhost);
-            pager = new Pager(this.fhirStore, snapshotstore, localhost, transfer, ModelInfo.SearchParameters);
+            pager = new Pager(this.fhirStore, snapshotstore, localhost, transfer, ModelInfo.SearchParameters, authService);
             //TODO: Use FhirModel instead of ModelInfo for the searchparameters.
         }
 
@@ -235,8 +236,6 @@ namespace Spark.Service
             }
             else
             {
-
-
                 UriBuilder builder = new UriBuilder(localhost.Uri(type));
                 builder.Query = results.UsedParameters;
                 Uri link = builder.Uri;
