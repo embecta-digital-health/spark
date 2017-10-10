@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using Hl7.Fhir.Model;
 using static Hl7.Fhir.Model.ModelInfo;
 using Spark.Engine.Extensions;
 using Hl7.Fhir.Introspection;
-using Spark.Engine.Model;
+using System.Reflection;
+using System.Diagnostics;
 
 namespace Spark.Engine.Core
 {
@@ -18,31 +21,73 @@ namespace Spark.Engine.Core
         {
             return (ResourceType)Enum.Parse(typeof(ResourceType), name, true);
         }
-
-        public static string GetResourceNameForResourceType(ResourceType type)
-        {
-            return Enum.GetName(typeof(ResourceType), type);
-        }
-
     }
 
     public class FhirModel : IFhirModel
     {
-        public FhirModel(Dictionary<Type, string> csTypeToFhirTypeNameMapping, IEnumerable<SearchParamDefinition> searchParameters)
+        public FhirModel(Dictionary<Type, string> csTypeToFhirTypeNameMapping, IEnumerable<SearchParamDefinition> searchParameters, List<Type> enums)
         {
             LoadSearchParameters(searchParameters);
             _csTypeToFhirTypeName = csTypeToFhirTypeNameMapping;
+            _fhirTypeNameToCsType = _csTypeToFhirTypeName.ToLookup(pair => pair.Value, pair => pair.Key).ToDictionary(group => group.Key, group => group.FirstOrDefault());
 
-            LoadCompartments();
+            _enumMappings = new List<EnumMapping>();
+            foreach (var enumType in enums)
+            {
+                if (EnumMapping.IsMappableEnum(enumType))
+                {
+                    _enumMappings.Add(EnumMapping.Create(enumType));
+                }
+            }
         }
-        public FhirModel() : this(ModelInfo.SearchParameters)
+        public FhirModel() : this(Assembly.GetAssembly(typeof(Resource)), ModelInfo.SearchParameters)
         {
         }
 
-        public FhirModel(IEnumerable<SearchParamDefinition> searchParameters)
+        public FhirModel(Assembly fhirAssembly, IEnumerable<SearchParamDefinition> searchParameters)
         {
             LoadSearchParameters(searchParameters);
-            LoadCompartments();
+            LoadAssembly(fhirAssembly);
+        }
+
+        public void LoadAssembly(Assembly fhirAssembly)
+        {
+            _csTypeToFhirTypeName = new Dictionary<Type, string>();
+            _fhirTypeNameToCsType = new Dictionary<string, Type>();
+            _enumMappings = new List<EnumMapping>();
+
+            foreach (Type fhirType in fhirAssembly.GetTypes())
+            {
+                if (typeof(Resource).IsAssignableFrom(fhirType)) //It is derived of Resource, so it is a Resource type.
+                {
+                    var fhirTypeAtt = fhirType.GetCustomAttribute<FhirTypeAttribute>();
+                    var obsoleteAtt = fhirType.GetCustomAttribute<ObsoleteAttribute>();
+                    //CK: Also check for obsolete. Example was Query, which was derived from Parameters, and therefore had the same name ("Parameters").
+                    if (fhirTypeAtt != null && fhirTypeAtt.IsResource && (obsoleteAtt == null || !obsoleteAtt.IsError))
+                    {
+                        if (_csTypeToFhirTypeName.Keys.Contains(fhirType))
+                        {
+                            Debug.WriteLine("Double import: " + fhirType.FullName);
+                        }
+                        else
+                        {
+                            _csTypeToFhirTypeName.Add(fhirType, fhirTypeAtt.Name);
+                        }
+                        if (_fhirTypeNameToCsType.Keys.Contains(fhirTypeAtt.Name))
+                        {
+                            Debug.WriteLine("Double import: " + fhirType.FullName);
+                        }
+                        else
+                        {
+                            _fhirTypeNameToCsType.Add(fhirTypeAtt.Name, fhirType);
+                        }
+                    }
+                }
+                else if (EnumMapping.IsMappableEnum(fhirType))
+                {
+                    _enumMappings.Add(EnumMapping.Create(fhirType));
+                }
+            }
         }
 
         private void LoadSearchParameters(IEnumerable<SearchParamDefinition> searchParameters)
@@ -98,8 +143,10 @@ namespace Spark.Engine.Core
 
             return result;
         }
-        //TODO: this should be removed after IndexServiceTests are changed to used mocking instead of this for overriding the context (CCR).
+
         private Dictionary<Type, string> _csTypeToFhirTypeName;
+        private Dictionary<string, Type> _fhirTypeNameToCsType;
+        private List<EnumMapping> _enumMappings;
 
         private List<SearchParameter> _searchParameters;
         public List<SearchParameter> SearchParameters
@@ -109,30 +156,52 @@ namespace Spark.Engine.Core
                 return _searchParameters;
             }
         }
+        
+        public IEnumerable<string> SupportedResourceNames
+        {
+            get
+            {
+                return _csTypeToFhirTypeName.Where(rm => typeof(Resource).IsAssignableFrom(rm.Key)).Select(rm => rm.Value).Distinct();
+            }
+        }
+
+        public IEnumerable<Type> SupportedResourceTypes
+        {
+            get { return _csTypeToFhirTypeName.Where(rm => typeof(Resource).IsAssignableFrom(rm.Key)).Select(rm => rm.Key).Distinct(); }
+        }
 
         public string GetResourceNameForType(Type type)
         {
-            if (_csTypeToFhirTypeName != null)
-            {
-                return _csTypeToFhirTypeName[type];
-            }
-            return ModelInfo.GetFhirTypeNameForType(type);
-
+            return _csTypeToFhirTypeName[type];
         }
 
         public Type GetTypeForResourceName(string name)
         {
-            return ModelInfo.GetTypeForFhirType(name);
+            return FhirTypeToCsType[name];
         }
 
         public ResourceType GetResourceTypeForResourceName(string name)
         {
             return (ResourceType)Enum.Parse(typeof(ResourceType), name, true);
         }
+        public ResourceType GetResourceTypeForType(Type type)
+        {
+            return (ResourceType)Enum.Parse(typeof(ResourceType), GetResourceNameForType(type), true);
+        }
 
         public string GetResourceNameForResourceType(ResourceType type)
         {
             return Enum.GetName(typeof(ResourceType), type);
+        }
+
+        public bool IsKnownResource(string name)
+        {
+            return SupportedResourceNames.Contains(name);
+        }
+
+        public IEnumerable<SearchParameter> FindSearchParameters(ResourceType resourceType)
+        {
+            return FindSearchParameters(GetResourceNameForResourceType(resourceType));
         }
 
         public IEnumerable<SearchParameter> FindSearchParameters(Type resourceType)
@@ -143,10 +212,6 @@ namespace Spark.Engine.Core
         public IEnumerable<SearchParameter> FindSearchParameters(string resourceName)
         {
             return SearchParameters.Where(sp => sp.Base == GetResourceTypeForResourceName(resourceName) || sp.Base == ResourceType.Resource);
-        }
-        public IEnumerable<SearchParameter> FindSearchParameters(ResourceType resourceType)
-        {
-            return FindSearchParameters(GetResourceNameForResourceType(resourceType));
         }
 
         public SearchParameter FindSearchParameter(ResourceType resourceType, string parameterName)
@@ -166,116 +231,7 @@ namespace Spark.Engine.Core
 
         public string GetLiteralForEnum(Enum value)
         {
-            return value.GetLiteral();
-        }
-
-        private List<CompartmentInfo> compartments = new List<CompartmentInfo>();
-        private void LoadCompartments()
-        {
-            //TODO, CK: You would want to read this with an ArtifactResolver, but since the Hl7.Fhir api doesn't know about CompartmentDefinition yet, that is not possible.
-
-            var patientCompartmentInfo = new CompartmentInfo(ResourceType.Patient);
-            patientCompartmentInfo.AddReverseIncludes(new List<string>() {
-                "Account.subject"
-                ,"AllergyIntolerance.patient"
-                ,"AllergyIntolerance.recorder"
-                ,"AllergyIntolerance.reporter"
-                ,"Appointment.actor"
-                ,"AppointmentResponse.actor"
-                ,"AuditEvent.patient"
-                ,"AuditEvent.agent.patient"
-                ,"AuditEvent.entity.patient"
-                ,"Basic.patient"
-                ,"Basic.author"
-                ,"BodySite.patient"
-                ,"CarePlan.patient"
-                ,"CarePlan.participant"
-                ,"CarePlan.performer"
-                //,"CareTeam.patient"
-                //,"CareTeam.participant"
-                ,"Claim.patientidentifier"
-                ,"Claim.patientreference"
-                ,"ClinicalImpression.patient"
-                ,"Communication.subject"
-                ,"Communication.sender"
-                ,"Communication.recipient"
-                ,"CommunicationRequest.subject"
-                ,"CommunicationRequest.sender"
-                ,"CommunicationRequest.recipient"
-                ,"CommunicationRequest.requester"
-                ,"Composition.subject"
-                ,"Composition.author"
-                ,"Composition.attester"
-                ,"Condition.patient"
-                ,"DetectedIssue.patient"
-                ,"DeviceUseRequest.subject"
-                ,"DiagnosticOrder.subject"
-                ,"DiagnosticReport.subject"
-                ,"DocumentManifest.subject"
-                ,"DocumentManifest.author"
-                ,"DocumentManifest.recipient"
-                ,"DocumentReference.subject"
-                ,"DocumentReference.author"
-                ,"Encounter.patient"
-                ,"EnrollmentRequest.subject"
-                ,"EpisodeOfCare.patient"
-                ,"FamilyMemberHistory.patient"
-                ,"Flag.patient"
-                ,"Goal.patient"
-                ,"Group.member"
-                //,"ImagingExcerpt.patient"
-                ,"ImagingObjectSelection.patient"
-                ,"ImagingObjectSelection.author"
-                ,"ImagingStudy.patient"
-                ,"Immunization.patient"
-                ,"ImmunizationRecommendation.patient"
-                ,"List.subject"
-                ,"List.source"
-                //,"MeasureReport.patient"
-                ,"Media.subject"
-                ,"MedicationAdministration.patient"
-                ,"MedicationDispense.patient"
-                ,"MedicationOrder.patient"
-                ,"MedicationStatement.patient"
-                ,"MedicationStatement.source"
-                ,"NutritionOrder.patient"
-                ,"Observation.subject"
-                ,"Observation.performer"
-                ,"Order.subject"
-                ,"OrderResponse.request.patient"
-                ,"Patient.link"
-                ,"Person.patient"
-                ,"Procedure.patient"
-                ,"Procedure.performer"
-                ,"ProcedureRequest.subject"
-                ,"ProcedureRequest.orderer"
-                ,"ProcedureRequest.performer"
-                ,"Provenance.target.subject"
-                ,"Provenance.target.patient"
-                ,"Provenance.patient"
-                ,"QuestionnaireResponse.subject"
-                ,"QuestionnaireResponse.author"
-                ,"ReferralRequest.patient"
-                ,"ReferralRequest.requester"
-                ,"RelatedPerson.patient"
-                ,"RiskAssessment.subject"
-                ,"Schedule.actor"
-                ,"Specimen.subject"
-                ,"SupplyDelivery.patient"
-                ,"SupplyRequest.patient"
-                ,"VisionPrescription.patient"
-            });
-            compartments.Add(patientCompartmentInfo);
-        }
-
-        public CompartmentInfo FindCompartmentInfo(ResourceType resourceType)
-        {
-            return compartments.Where(ci => ci.ResourceType == resourceType).FirstOrDefault();
-        }
-
-        public CompartmentInfo FindCompartmentInfo(string resourceType)
-        {
-            return FindCompartmentInfo(GetResourceTypeForResourceName(resourceType));
+            return _enumMappings.FirstOrDefault(em => em.EnumType == value.GetType())?.GetLiteral(value);
         }
     }
 }

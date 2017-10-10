@@ -1,39 +1,39 @@
-﻿/* 
- * Copyright (c) 2014, Furore (info@furore.com) and contributors
- * See the file CONTRIBUTORS for details.
- * 
- * This file is licensed under the BSD 3-Clause license
- * available at https://raw.github.com/furore-fhir/spark/master/LICENSE
- */
-
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Formatting;
+﻿using System;
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
 using Hl7.Fhir.Rest;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
-using Microsoft.AspNetCore.Http.Internal;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Primitives;
 using Spark.Engine.Auxiliary;
 using Spark.Engine.Extensions;
-using Spark.Engine.Core;
 
-
-namespace Spark.Handlers
+namespace Spark.Engine.Middleware
 {
-    public class FhirMediaTypeHandler : DelegatingHandler
+    public class FhirMediaTypeMiddleware
     {
+        private readonly RequestDelegate _nextDelegate;
+
+        public FhirMediaTypeMiddleware(RequestDelegate nextDelegate)
+        {
+            _nextDelegate = nextDelegate;
+        }
+
+        public async Task Invoke(HttpContext context)
+        {
+            Debug.WriteLine("");
+            // Call the nextDelegate delegate/middleware in the pipeline
+            await _nextDelegate.Invoke(context);
+
+            //await SendAsync(context, new CancellationToken(false));
+        }
+
         private bool isBinaryRequest(HttpRequest request)
         {
 //            var ub = new UriBuilder(request.RequestUri);//pre.netCore
             var ub = new UriBuilder(request.GetDisplayUrl());
-            return ub.Path.Contains("Binary"); 
+            return ub.Path.Contains("Binary");
             // HACK: replace quick hack by solid solution.
         }
 
@@ -41,12 +41,14 @@ namespace Spark.Handlers
         {
 //            var ub = new UriBuilder(request.RequestUri);//pre.netCore
             var ub = new UriBuilder(request.GetDisplayUrl());
-            return ub.Path.Contains("_tags"); 
+            return ub.Path.Contains("_tags");
             // HACK: replace quick hack by solid solution.
         }
 
-        protected async Task<HttpResponse> SendAsync(HttpRequest request, CancellationToken cancellationToken)
+        protected async Task SendAsync(HttpContext context, CancellationToken cancellationToken)
         {
+            HttpRequest request = context.Request;
+
             string formatParam = request.GetParameter("_format");
             if (!string.IsNullOrEmpty(formatParam))
             {
@@ -73,7 +75,8 @@ namespace Spark.Handlers
             // HACK: passes to BinaryFhirFormatter
             if (isBinaryRequest(request))
             {
-                throw new NotImplementedException();//pre.netCore removed for now
+                throw new NotImplementedException();
+                //pre.netCore
 //                if (request.Content.Headers.ContentType != null)
 //                {
 //                    var format = request.Content.Headers.ContentType.MediaType;
@@ -86,11 +89,11 @@ namespace Spark.Handlers
 //                    request.Headers.Replace("Accept", FhirMediaType.BinaryResource);
 //                }
             }
-          throw new NotImplementedException();
-//            return ;
+
+            await context.Response.WriteAsync(context.Response.ToString(), cancellationToken);
         }
     }
-    
+
     // Instead of using the general purpose DelegatingHandler, could we use IContentNegotiator?
 //    public class FhirContentNegotiator : IContentNegotiator
 //    {
@@ -99,5 +102,4 @@ namespace Spark.Handlers
 //            throw new NotImplementedException();
 //        }
 //    }
-
 }

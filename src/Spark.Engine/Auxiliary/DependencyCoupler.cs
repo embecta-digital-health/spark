@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using Spark.Core;
+using Spark.Engine.Core;
 
 namespace Spark.Engine.Auxiliary
 {

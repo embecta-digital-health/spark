@@ -1,16 +1,12 @@
-﻿using System;
-using System.Net.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Spark.Engine.Extensions;
+using System;
 
 namespace Spark.Engine.Core
 {
     public class HistoryParameters
     {
-        public HistoryParameters()
-        {
-            
-        }
-        public HistoryParameters(HttpRequestMessage request)
+        public HistoryParameters(HttpRequest request)
         {
             Count = request.GetIntParameter(FhirParameter.COUNT);
             Since = request.GetDateParameter(FhirParameter.SINCE);

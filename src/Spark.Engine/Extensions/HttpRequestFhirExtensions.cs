@@ -9,20 +9,24 @@
 using Spark.Configuration;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Serialization;
 using Spark.Engine.Core;
 using Hl7.Fhir.Rest;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Primitives;
 
 namespace Spark.Engine.Extensions
 {
     public static class HttpRequestFhirExtensions
     {
-        
+        private const string IfMatch = "If-Match";
         // Deprecated: only used for Mailbox
-        //public static void SaveBody(this HttpRequestMessage request, string contentType, byte[] data)
+        //public static void SaveBody(this HttpRequest request, string contentType, byte[] data)
         //{
         //    Binary b = new Binary { Content = data, ContentType = contentType };
 
@@ -30,7 +34,7 @@ namespace Spark.Engine.Extensions
         //}
 
         // Deprecated: only used for Mailbox
-        //public static Binary GetBody(this HttpRequestMessage request)
+        //public static Binary GetBody(this HttpRequest request)
         //{
         //    if (request.Properties.ContainsKey(Const.UNPARSED_BODY))
         //        return request.Properties[Const.UNPARSED_BODY] as Binary;
@@ -47,20 +51,27 @@ namespace Spark.Engine.Extensions
         /// The SendAsync is called after the headers are set. The SetDefaultHeaders have no access to the content object.
         /// The only solution is to give the information through the Request Property Bag.
         /// </remarks>
-        public static void SaveEntry(this HttpRequestMessage request, Entry entry)
+        public static void SaveEntry(this HttpRequest request, Entry entry)
         {
-            request.Properties.Add(Const.RESOURCE_ENTRY, entry);
+//            request.Properties.Add(Const.RESOURCE_ENTRY, entry);//pre .net core
+            request.HttpContext.Items.Add(Const.RESOURCE_ENTRY, entry);
         }
 
-        public static Entry GetEntry(this HttpRequestMessage request)
+        public static Entry GetEntry(this HttpRequest request)
         {
-            if (request.Properties.ContainsKey(Const.RESOURCE_ENTRY))
-                return request.Properties[Const.RESOURCE_ENTRY] as Entry;
+            //pre .net core
+            //            if (request.Properties.ContainsKey(Const.RESOURCE_ENTRY))
+            //                return request.Properties[Const.RESOURCE_ENTRY] as Entry;
+            //            else
+            //                return null;
+
+            if (request.HttpContext.Items.ContainsKey(Const.RESOURCE_ENTRY))
+                return request.HttpContext.Items[Const.RESOURCE_ENTRY] as Entry;
             else
                 return null;
         }
 
-        //public static HttpResponseMessage HttpResponse(this HttpRequestMessage request, HttpStatusCode code, Entry entry)
+        //public static HttpResponseMessage HttpResponse(this HttpRequest request, HttpStatusCode code, Entry entry)
         //{
         //    request.SaveEntry(entry);
 
@@ -74,28 +85,33 @@ namespace Spark.Engine.Extensions
 
        
 
-        public static void AcquireHeaders(this HttpResponseMessage response, FhirResponse fhirResponse)
+        public static void AcquireHeaders(this HttpResponse response, FhirResponse fhirResponse)
         {
             // http.StatusCode = fhir.StatusCode;
             if (fhirResponse.Key != null)
             {
-                response.Headers.ETag = ETag.Create(fhirResponse.Key.VersionId);
+                // perhaps another way if this doesn't work: https://stackoverflow.com/questions/35458737/implement-http-cache-etag-in-asp-net-core-web-api
+                response.Headers.Add("ETag",ETag.Create(fhirResponse.Key.VersionId).ToString());
 
-                Uri location = fhirResponse.Key.ToUri();
-                response.Headers.Location = location;
+//                Uri location = fhirResponse.Key.ToUri();
 
-                if (response.Content != null)
-                {
-                    response.Content.Headers.ContentLocation = location;
-                    if (fhirResponse.Resource != null && fhirResponse.Resource.Meta != null)
-                    {
-                        response.Content.Headers.LastModified = fhirResponse.Resource.Meta.LastUpdated;
-                    }
-                }
+//                if (response.HttpContext != null)
+//                {
+//                    response.Headers.ContentLocation = location;
+//
+//                    if (fhirResponse.Resource != null && fhirResponse.Resource.Meta != null)
+//                    {
+//                        response.Headers = fhirResponse.Resource.Meta.LastUpdated;
+//                    }
+//                }
+//                else
+//                {
+//                    response.Headers.Location = location;
+//                }
             }
         }
        
-        private static HttpResponseMessage CreateBareFhirResponse(this HttpRequestMessage request, FhirResponse fhir)
+        private static HttpResponse CreateBareFhirResponse(this HttpRequest request, FhirResponse fhir)
         {
             bool includebody = request.PreferRepresentation();
 
@@ -103,47 +119,59 @@ namespace Spark.Engine.Extensions
             {
                 if (includebody)
                 {
-                    Binary binary = fhir.Resource as Binary;
-                    if (binary != null)
-                    {
-                        return request.CreateResponse(fhir.StatusCode, binary);
-                    }
-                    else
-                    {
-                        return request.CreateResponse(fhir.StatusCode, fhir.Resource);
-                    }
+                    throw new NotImplementedException();
+//                    Binary binary = fhir.Resource as Binary;
+//                    if (binary != null)
+//                    {
+//                        return request.CreateResponse(fhir.StatusCode, binary);
+//                    }
+//                    else
+//                    {
+//                        return request.CreateResponse(fhir.StatusCode, fhir.Resource);
+//                    }
                 }
-                else
-                {
-                    return request.CreateResponse(fhir.StatusCode);
-                }
+//                else
+//                {
+//                    return request.CreateResponse(fhir.StatusCode);
+//                }
             }
             else
             {
                 return request.CreateResponse(fhir.StatusCode);
             }
+            throw new NotImplementedException();
         }
 
-        public static HttpResponseMessage CreateResponse(this HttpRequestMessage request, FhirResponse fhir)
+        private static HttpResponse CreateResponse(this HttpRequest request, HttpStatusCode fhirStatusCode)
         {
-            HttpResponseMessage message = request.CreateBareFhirResponse(fhir);
+            throw new NotImplementedException();
+        }
+
+        public static HttpResponse CreateResponse(this HttpRequest request, FhirResponse fhir)
+        {
+            HttpResponse message = request.CreateBareFhirResponse(fhir);
             message.AcquireHeaders(fhir);
             return message;
         }
 
+        public static HttpResponse CreateResponse(this HttpRequest request, HttpStatusCode exceptionStatusCode, OperationOutcome outcome)
+        {
+            throw new NotImplementedException();
+        }
+
         /*
-        public static HttpResponseMessage HttpResponse(this HttpRequestMessage request, Entry entry)
+        public static HttpResponseMessage HttpResponse(this HttpRequest request, Entry entry)
         {
             return request.HttpResponse(HttpStatusCode.OK, entry);
         }
         */
 
-        //public static HttpResponseMessage Error(this HttpRequestMessage request, int code, OperationOutcome outcome)
+        //public static HttpResponseMessage Error(this HttpRequest request, int code, OperationOutcome outcome)
         //{
         //    return request.CreateResponse((HttpStatusCode)code, outcome);
         //}
 
-        //public static HttpResponseMessage StatusResponse(this HttpRequestMessage request, Entry entry, HttpStatusCode code)
+        //public static HttpResponseMessage StatusResponse(this HttpRequest request, Entry entry, HttpStatusCode code)
         //{
         //    request.SaveEntry(entry);
         //    HttpResponseMessage msg = request.CreateResponse(code);
@@ -154,27 +182,27 @@ namespace Spark.Engine.Extensions
         //}
 
         /*
-        public static ICollection<Tag> GetFhirTags(this HttpRequestMessage request)
+        public static ICollection<Tag> GetFhirTags(this HttpRequest request)
         {
             return request.Headers.GetFhirTags();
         }
         */
 
-        public static DateTimeOffset? GetDateParameter(this HttpRequestMessage request, string name)
+        public static DateTimeOffset? GetDateParameter(this HttpRequest request, string name)
         {
             string param = request.GetParameter(name);
             if (param == null) return null;
             return DateTimeOffset.Parse(param);
         }
 
-        public static int? GetIntParameter(this HttpRequestMessage request, string name)
+        public static int? GetIntParameter(this HttpRequest request, string name)
         {
             string s = request.GetParameter(name);
             int n;
             return (int.TryParse(s, out n)) ? n : (int?)null;
         }
 
-        public static bool? GetBooleanParameter(this HttpRequestMessage request, string name)
+        public static bool? GetBooleanParameter(this HttpRequest request, string name)
         {
             string s = request.GetParameter(name);           
             if(s == null) return null;
@@ -190,9 +218,17 @@ namespace Spark.Engine.Extensions
             }
         }
 
-        public static DateTimeOffset? IfModifiedSince(this HttpRequestMessage request)
+        public static DateTimeOffset? IfModifiedSince(this HttpRequest request)
         {
-            return request.Headers.IfModifiedSince;
+            if (!request.Headers.TryGetValue("If-Modified-Since", out StringValues valueSet))
+            {
+                return null;
+            }
+            if(DateTimeOffset.TryParse(valueSet.FirstOrDefault(), out var dateTimeOffset))
+            {
+                return dateTimeOffset;
+            }
+            return null;
             //string s = request.Header("If-Modified-Since");
             //DateTimeOffset date;
             //if (DateTimeOffset.TryParse(s, out date))
@@ -204,10 +240,11 @@ namespace Spark.Engine.Extensions
             //}
         }
 
-        public static IEnumerable<string> IfNoneMatch(this HttpRequestMessage request)
+        public static IEnumerable<string> IfNoneMatch(this HttpRequest request)
         {
+            throw new NotImplementedException();
             // The if-none-match can be either '*' or tags. This needs further implementation.
-            return request.Headers.IfNoneMatch.Select(h => h.Tag);
+//            return request.Headers.IfNoneMatch.Select(h => h.Tag);
         }
 
         private static string WithoutQuotes(string s)
@@ -222,62 +259,61 @@ namespace Spark.Engine.Extensions
             }
         }
 
-        public static string GetValue(this HttpRequestMessage request, string key)
+        public static string GetValue(this HttpRequest request, string key)
         {
-            if (request.Headers.Count() > 0)
+            if (request.Headers.Any())
             {
-                IEnumerable<string> values;
-                if (request.Headers.TryGetValues(key, out values))
+                if (request.Headers.TryGetValue(key, out StringValues values))
                 {
                     string value = values.FirstOrDefault();
                     return value;
                 }
                 return null;
             }
-            else return null;
+            return null;
         }
 
-        public static bool PreferRepresentation(this HttpRequestMessage request)
+        public static bool PreferRepresentation(this HttpRequest request)
         {
             string value = request.GetValue("Prefer");
             return (value == "return=representation" || value == null);
         }
 
-        public static string IfMatchVersionId(this HttpRequestMessage request)
+        public static string IfMatchVersionId(this HttpRequest request)
         {
-            if (request.Headers.Count() > 0)
+            string tag;
+            if (request.Headers.Any())
             {
-                var tag = request.Headers.IfMatch.FirstOrDefault();
-                if (tag != null)
+//                var tag = request.Headers.IfMatch.FirstOrDefault();//pre .net Core
+                if (request.Headers.TryGetValue(IfMatch, out StringValues value))
                 {
-                    return WithoutQuotes(tag.Tag);
+                    return WithoutQuotes(value.FirstOrDefault());
                 }
-                else
-                {
-                    return null;
-                }
+                //                if (tag != null)
+                //                {
+                //                    return WithoutQuotes(tag.Tag);
+                //                }
+
+                return null;
                 // todo: validate missing quotes
                 //else 
                 //{
                 //    throw Error.Create(HttpStatusCode.BadRequest, "The If-Match (version id) is not properly formatted: '{0}'. You might have forgot the quotes", request.Headers.IfMatch.ToString());
                 //}
             }
-            else
-            {
-                return null;
-                //return string.IsNullOrEmpty(versionid) ? null : versionid;
-            }
-            
-      
+            return null;
+            //return string.IsNullOrEmpty(versionid) ? null : versionid;
+
+
             //string versionid = (tag != null) ? tag.Tag : null;
-            
         }
 
-        public static SummaryType RequestSummary(this HttpRequestMessage request)
+        public static SummaryType RequestSummary(this HttpRequest request)
         {
 
             return (request.GetParameter("_summary") == "true") ? SummaryType.True : SummaryType.False;
         }
+
 
     }
 }

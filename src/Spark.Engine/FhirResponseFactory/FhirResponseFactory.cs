@@ -1,7 +1,7 @@
-﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Hl7.Fhir.Model;
+using System.Security.Claims;
+using Spark.Core;
 using Spark.Engine.Core;
 using Spark.Engine.Extensions;
 using Spark.Engine.Interfaces;
@@ -9,33 +9,32 @@ using Spark.Service;
 
 namespace Spark.Engine.FhirResponseFactory
 {
-    public interface IFhirResponseFactory
-    {
-        FhirResponse GetFhirResponse(Entry entry, IKey key = null, IEnumerable<object> parameters = null);
-        FhirResponse GetFhirResponse(Entry entry, IKey key = null, params object[] parameters);
-        FhirResponse GetMetadataResponse(Entry entry, IKey key = null);
-        FhirResponse GetFhirResponse(IList<Entry> interactions, Bundle.BundleType bundleType);
-        FhirResponse GetFhirResponse(Bundle bundle);
-        FhirResponse GetFhirResponse(IEnumerable<Tuple<Entry, FhirResponse>> responses, Bundle.BundleType bundleType);
-    }
-
     public class FhirResponseFactory : IFhirResponseFactory
     {
+        protected IFhirStore fhirStore;
+        protected Transfer transfer;
         private readonly IFhirResponseInterceptorRunner interceptorRunner;
-        private readonly ILocalhost localhost;
 
-        public FhirResponseFactory(ILocalhost localhost, IFhirResponseInterceptorRunner interceptorRunner)
+        public FhirResponseFactory(IFhirStore fhirStore, Transfer transfer, IFhirResponseInterceptorRunner interceptorRunner)
         {
-            this.localhost = localhost;
+            this.fhirStore = fhirStore;
+            this.transfer = transfer;
             this.interceptorRunner = interceptorRunner;
         }
 
-        public FhirResponse GetFhirResponse(Entry entry, IKey key = null, IEnumerable<object> parameters = null)
+        public FhirResponse GetFhirResponse(Key key, ClaimsPrincipal principal, IEnumerable<object> parameters = null)
         {
-            if (entry == null)
+            Entry entry = fhirStore.Get(key, principal);
+
+            if (entry.Resource == null)
             {
                 return Respond.NotFound(key);
             }
+            return GetFhirResponse(entry, parameters);
+        }
+
+        public FhirResponse GetFhirResponse(Entry entry, IEnumerable<object> parameters = null)
+        {
             if (entry.IsDeleted())
             {
                 return Respond.Gone(entry);
@@ -51,45 +50,14 @@ namespace Spark.Engine.FhirResponseFactory
             return response ?? Respond.WithResource(entry);
         }
 
-        public FhirResponse GetFhirResponse(Entry entry, IKey key = null, params object[] parameters)
+        public FhirResponse GetFhirResponse(Key key, ClaimsPrincipal principal, params object[] parameters)
         {
-            return GetFhirResponse(entry, key, parameters.ToList());
+            return GetFhirResponse(key, principal, parameters.ToList());
         }
 
-        public FhirResponse GetMetadataResponse(Entry entry, IKey key = null)
+        public FhirResponse GetFhirResponse(Entry entry, params object[] parameters)
         {
-            if (entry == null)
-            {
-                return Respond.NotFound(key);
-            }
-            else if (entry.IsDeleted())
-            {
-                return Respond.Gone(entry);
-            }
-
-            return Respond.WithMeta(entry);
-        }
-
-        public FhirResponse GetFhirResponse(IList<Entry> interactions, Bundle.BundleType bundleType)
-        {
-            Bundle bundle = localhost.CreateBundle(bundleType).Append(interactions);
-            return Respond.WithBundle(bundle);
-        }
-
-        public FhirResponse GetFhirResponse(IEnumerable<Tuple<Entry, FhirResponse>> responses, Bundle.BundleType bundleType)
-        {
-            Bundle bundle = localhost.CreateBundle(bundleType);
-            foreach (Tuple<Entry, FhirResponse> response in responses)
-            {
-                bundle.Append(response.Item1, response.Item2);
-            }
-      
-            return Respond.WithBundle(bundle);
-        }
-
-        public FhirResponse GetFhirResponse(Bundle bundle)
-        {
-            return Respond.WithBundle(bundle);
+            return GetFhirResponse(entry, parameters.ToList());
         }
     }
 }

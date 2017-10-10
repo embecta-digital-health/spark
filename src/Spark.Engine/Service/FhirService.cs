@@ -1,264 +1,651 @@
-﻿using System;
-using System.Collections;
+﻿/* 
+ * Copyright (c) 2014, Furore (info@furore.com) and contributors
+ * See the file CONTRIBUTORS for details.
+ * 
+ * This file is licensed under the BSD 3-Clause license
+ * available at https://raw.github.com/furore-fhir/spark/master/LICENSE
+ */
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Security.Claims;
 using Hl7.Fhir.Model;
 using Hl7.Fhir.Rest;
+using Microsoft.AspNetCore.Authorization;
 using Spark.Core;
 using Spark.Engine.Core;
 using Spark.Engine.Extensions;
-using Spark.Engine.FhirResponseFactory;
-using Spark.Engine.Service.FhirServiceExtensions;
-using Spark.Engine.Storage;
-using Spark.Service;
+using Spark.Engine.Auxiliary;
+using Spark.Engine.Interfaces;
+using Spark.Engine.Logging;
+using Spark.Engine.Service;
 
-namespace Spark.Engine.Service
+namespace Spark.Service
 {
-    public class FhirService : ExtendableWith<IFhirServiceExtension>, IFhirService, IInteractionHandler 
-        //CCCR: FhirService now implementents InteractionHandler that is used by the TransactionService to actually perform the operation. 
-        //This creates a circular reference that is solved by sending the handler on each call. 
-        //A future step might be to split that part into a different service (maybe StorageService?)
+
+    public class FhirService
     {
+        protected IFhirStore fhirStore;
+        protected ISnapshotStore snapshotstore;
+        protected IFhirIndex fhirIndex;
+
+        protected IGenerator keyGenerator;
+        protected ILocalhost localhost;
+        protected IServiceListener serviceListener;
         private readonly IFhirResponseFactory responseFactory;
-        private readonly ITransfer transfer;
-        private readonly ICompositeServiceListener serviceListener;
-        public FhirService(IFhirServiceExtension[] extensions, 
-            IFhirResponseFactory responseFactory, //TODO: can we remove this dependency?
-            ITransfer transfer,
-            ICompositeServiceListener serviceListener = null) //TODO: can we remove this dependency? - CCR
+
+        protected Transfer transfer;
+        protected Pager pager;
+
+        protected IndexService _indexService;
+
+        private SparkEngineEventSource _log = SparkEngineEventSource.Log;
+
+        public FhirService(ILocalhost localhost, IFhirStore fhirStore, ISnapshotStore snapshotStore, IGenerator keyGenerator, IAuthorizationService authService,
+            IFhirIndex fhirIndex, IServiceListener serviceListener, IFhirResponseFactory responseFactory, IndexService indexService)
         {
-            this.responseFactory = responseFactory;
-            this.transfer = transfer;
+            this.localhost = localhost;
+            this.fhirStore = fhirStore;
+            this.snapshotstore = snapshotStore;
+            this.keyGenerator = keyGenerator;
+            this.fhirIndex = fhirIndex;
             this.serviceListener = serviceListener;
+            this.responseFactory = responseFactory;
+            _indexService = indexService;
 
-            foreach (IFhirServiceExtension serviceExtension in extensions)
-            {
-                this.AddExtension(serviceExtension);
-            }
+            transfer = new Transfer(this.keyGenerator, localhost);
+            pager = new Pager(this.fhirStore, snapshotstore, localhost, transfer, ModelInfo.SearchParameters, authService);
+            //TODO: Use FhirModel instead of ModelInfo for the searchparameters.
         }
 
-        public FhirResponse Read(IKey key, ConditionalHeaderParameters parameters = null)
+        public FhirResponse Read(Key key, ClaimsPrincipal principal, ConditionalHeaderParameters parameters = null)
         {
+            _log.ServiceMethodCalled("read");
+
             ValidateKey(key);
 
-            Entry entry = GetFeature<IResourceStorageService>().Get(key);
-
-            return responseFactory.GetFhirResponse(entry, key, parameters);
+            return responseFactory.GetFhirResponse(key, principal, parameters);
         }
 
-        public FhirResponse ReadMeta(IKey key)
+        public FhirResponse ReadMeta(Key key, ClaimsPrincipal principal)
         {
+            _log.ServiceMethodCalled("readmeta");
+
             ValidateKey(key);
 
-            Entry entry = GetFeature<IResourceStorageService>().Get(key);
+            Entry entry = fhirStore.Get(key, principal);
 
-            return responseFactory.GetMetadataResponse(entry, key);
-        }
-
-        public FhirResponse AddMeta(IKey key, Parameters parameters)
-        {
-            var storageService = GetFeature<IResourceStorageService>();
-            Entry entry = storageService.Get(key);
-
-            if (entry != null && entry.IsDeleted() == false)
+            if (entry == null)
             {
-                entry.Resource.AffixTags(parameters);
-                storageService.Add(entry);
+                return Respond.NotFound(key);
+            }
+            else if (entry.IsDeleted())
+            {
+                return Respond.Gone(entry);
             }
 
-            return responseFactory.GetMetadataResponse(entry, key);
+            return Respond.WithMeta(entry);
         }
 
-        public FhirResponse VersionRead(IKey key)
+        private static void ValidateKey(Key key, bool includeVersion = false)
         {
+            Validate.HasTypeName(key);
+            Validate.HasResourceId(key);
+            if (includeVersion)
+            {
+                Validate.HasVersion(key);
+            }
+            else
+            {
+                Validate.HasNoVersion(key);
+            }
+            Validate.Key(key);
+        }
+
+        public FhirResponse AddMeta(Key key, Parameters parameters, ClaimsPrincipal principal)
+        {
+            Entry entry = fhirStore.Get(key, principal);
+
+            if (entry == null)
+            {
+                return Respond.NotFound(key);
+            }
+            else if (entry.IsDeleted())
+            {
+                return Respond.Gone(entry);
+            }
+
+            entry.Resource.AffixTags(parameters);
+            Store(entry, principal);
+
+            return Respond.WithMeta(entry);
+        }
+
+        /// <summary>
+        /// Read the state of a specific version of the resource.
+        /// </summary>
+        /// <param name="collectionName">The resource type, in lowercase</param>
+        /// <param name="id">The id part of a version-specific reference</param>
+        /// <param name="vid">The version part of a version-specific reference</param>
+        /// <returns>A Result containing the resource, or an Issue</returns>
+        /// <remarks>
+        /// If the version referred to is actually one where the resource was deleted, the server should return a 
+        /// 410 status code. 
+        /// </remarks>
+        public FhirResponse VersionRead(Key key, ClaimsPrincipal principal)
+        {
+            _log.ServiceMethodCalled("versionread");
+
             ValidateKey(key, true);
-            Entry entry = GetFeature<IResourceStorageService>().Get(key);
 
-            return responseFactory.GetFhirResponse(entry, key);
+            return responseFactory.GetFhirResponse(key,principal);
         }
 
-        public FhirResponse Create(IKey key, Resource resource)
+        /// <summary>
+        /// Create a new resource with a server assigned id.
+        /// </summary>
+        /// <param name="collection">The resource type, in lowercase</param>
+        /// <param name="resource">The data for the Resource to be created</param>
+        /// <returns>
+        /// Returns 
+        ///     201 Created - on successful creation
+        /// </returns>
+        public FhirResponse Create(IKey key, Resource resource, ClaimsPrincipal principal)
         {
             Validate.Key(key);
-            Validate.HasTypeName(key);
             Validate.ResourceType(key, resource);
-
+            Validate.HasTypeName(key);
             Validate.HasNoResourceId(key);
             Validate.HasNoVersion(key);
 
+            Entry entry = Entry.POST(key, resource);
+            transfer.Internalize(entry);
 
-            Entry result = Store(Entry.POST(key, resource));
+            Store(entry, principal);
 
+            // API: The api demands a body. This is wrong
+            //CCR: The documentations specifies that servers should honor the Http return preference header
+            Entry result = fhirStore.Get(entry.Key, principal);
+            transfer.Externalize(result);
             return Respond.WithResource(HttpStatusCode.Created, result);
         }
 
-        public FhirResponse Create(Entry entry)
+        public FhirResponse Put(IKey key, Resource resource, ClaimsPrincipal principal)
         {
-            Validate.Key(entry.Key);
-            Validate.HasTypeName(entry.Key);
-            Validate.ResourceType(entry.Key, entry.Resource);
-
-            if (entry.State != EntryState.Internal)
-            {
-                Validate.HasNoResourceId(entry.Key);
-                Validate.HasNoVersion(entry.Key);
-            }
-
-
-            Entry result = Store(entry);
-
-            return Respond.WithResource(HttpStatusCode.Created, result);
-        }
-
-        public FhirResponse Put(Entry entry)
-        {
-            Validate.Key(entry.Key);
-            Validate.ResourceType(entry.Key, entry.Resource);
-            Validate.HasTypeName(entry.Key);
-            Validate.HasResourceId(entry.Key);
-           
-
-            var storageService = GetFeature<IResourceStorageService>();
-            Entry current = storageService.Get(entry.Key.WithoutVersion());
-
-            Entry result = Store(entry);
-
-            return Respond.WithResource(current != null ? HttpStatusCode.OK : HttpStatusCode.Created, result);
-
-        }
-        public FhirResponse Put(IKey key, Resource resource)
-        {
+            Validate.Key(key);
+            Validate.ResourceType(key, resource);
+            Validate.HasTypeName(key);
+            Validate.HasResourceId(key);
             Validate.HasResourceId(resource);
             Validate.IsResourceIdEqual(key, resource);
-            return Put(Entry.PUT(key, resource));
+
+            Entry current = fhirStore.Get(key, principal);
+
+            Entry entry = Entry.PUT(key, resource);
+            transfer.Internalize(entry);
+
+
+            Store(entry,principal);
+
+            // API: The api demands a body. This is wrong
+            //CCR: The documentations specifies that servers should honor the Http return preference header
+            Entry result = fhirStore.Get(entry.Key, principal);
+            transfer.Externalize(result);
+
+            return Respond.WithResource(current != null ? HttpStatusCode.OK : HttpStatusCode.Created, result);
         }
 
-        public FhirResponse ConditionalCreate(IKey key, Resource resource, IEnumerable<Tuple<string, string>> parameters)
+        public FhirResponse ConditionalCreate(IKey key, Resource resource, IEnumerable<Tuple<string, string>> query)
         {
-            return ConditionalCreate(key, resource, SearchParams.FromUriParamList(parameters));
+            // DSTU2: search
+            throw new NotImplementedException("This will be implemented after search is DSTU2");
         }
 
-        public FhirResponse ConditionalCreate(IKey key, Resource resource, SearchParams parameters)
+        public FhirResponse Search(string type, SearchParams searchCommand, ClaimsPrincipal principal)
         {
-            ISearchService searchStore = this.FindExtension<ISearchService>();
-            ITransactionService transactionService = this.FindExtension<ITransactionService>();
-            if (searchStore == null || transactionService == null)
-                throw new NotSupportedException("Operation not supported");
+            _log.ServiceMethodCalled("search");
 
-            return transactionService.HandleTransaction(
-                    ResourceManipulationOperationFactory.CreatePost(resource, key, searchStore, parameters),
-                    this);
-        }
+            Validate.TypeName(type);
+            SearchResults results = fhirIndex.Search(type, searchCommand);
 
-        public FhirResponse Everything(IKey key)
-        {
-            ISearchService searchService = this.GetFeature<ISearchService>();
-
-            Snapshot snapshot = searchService.GetSnapshotForEverything(key);
-
-            return CreateSnapshotResponse(snapshot);
-        }
-
-        public FhirResponse Document(IKey key)
-        {
-            Validate.HasResourceType(key, ResourceType.Composition);
-
-            var searchCommand = new SearchParams();
-            searchCommand.Add("_id", key.ResourceId);
-            var includes = new List<string>()
+            if (results.HasErrors)
             {
-                "Composition:subject"
-                , "Composition:author"
-                , "Composition:attester" //Composition.attester.party
-                , "Composition:custodian"
-                , "Composition:eventdetail" //Composition.event.detail
-                , "Composition:encounter"
-                , "Composition:entry" //Composition.section.entry
-            };
-            foreach (var inc in includes)
-            {
-                searchCommand.Include.Add(inc);
+                throw new SparkException(HttpStatusCode.BadRequest, results.Outcome);
             }
-            return Search(key.TypeName, searchCommand);
+            var bundle = new Bundle();
+            if (results.Count == 0)
+            {
+                return Respond.NotFound(null);
+            }
+            if (searchCommand.Count == 0)
+            {
+                bundle.Type = Bundle.BundleType.Batch;
+                bundle.Total = results.Count;
+                bundle.Id = UriHelper.CreateUuid().ToString();
+                //todo use story by (see CouchFhirStore Get method)
+                List<Entry> entry = fhirStore.Get(results.ToArray(), null, principal).ToList();
+                if (searchCommand.Include.Count != 0)
+                {
+                                    IList<Entry> included = pager.GetIncludesRecursiveFor(entry, searchCommand.Include, principal);
+                                    entry.Append(included);
+                }
+
+                transfer.Externalize(entry);
+                bundle.Append(entry);
+            }
+            else
+            {
+                UriBuilder builder = new UriBuilder(localhost.Uri(type));
+                builder.Query = results.UsedParameters;
+                Uri link = builder.Uri;
+
+                var snapshot = pager.CreateSnapshot(link, results, searchCommand);
+                bundle = pager.GetFirstPage(snapshot, principal);
+            }
+            if (results.HasIssues)
+            {
+                bundle.AddResourceEntry(results.Outcome, new Uri("outcome/1", UriKind.Relative).ToString());
+            }
+
+            return Respond.WithBundle(bundle);
         }
 
-        public FhirResponse VersionSpecificUpdate(IKey versionedkey, Resource resource)
+        //public FhirResponse Search(string type, IEnumerable<Tuple<string, string>> parameters, int pageSize, string sortby)
+        //{
+        //    Validate.TypeName(type);
+        //    Uri link = localhost.Uri(type);
+
+        //    IEnumerable<string> keys = store.List(type);
+        //    var snapshot = pager.CreateSnapshot(Bundle.BundleType.Searchset, link, keys, );
+        //    Bundle bundle = pager.GetFirstPage(snapshot);
+        //    return Respond.WithBundle(bundle, localhost.Base);
+        // DSTU2: search
+        /*
+        Query query = FhirParser.ParseQueryFromUriParameters(collection, parameters);
+        ICollection<string> includes = query.Includes;
+
+        SearchResults results = index.Search(query);
+
+        if (results.HasErrors)
+        {
+            throw new SparkException(HttpStatusCode.BadRequest, results.Outcome);
+        }
+
+        Uri link = localhost.Uri(type).AddPath(results.UsedParameters);
+
+        Bundle bundle = pager.GetFirstPage(link, keys, sortby);
+
+        /*
+        if (results.HasIssues)
+        {
+            var outcomeEntry = BundleEntryFactory.CreateFromResource(results.Outcome, new Uri("outcome/1", UriKind.Relative), DateTimeOffset.Now);
+            outcomeEntry.SelfLink = outcomeEntry.Id;
+            bundle.Entries.Add(outcomeEntry);
+        }
+        return Respond.WithBundle(bundle);
+        */
+        //}
+
+        //public FhirResponse Update(IKey key, Resource resource)
+        //{
+        //    Validate.HasTypeName(key);
+        //    Validate.HasNoVersion(key);
+        //    Validate.ResourceType(key, resource);
+
+        //    Interaction original = store.Get(key);
+
+        //    if (original == null)
+        //    {
+        //        return Respond.WithError(HttpStatusCode.MethodNotAllowed,
+        //            "Cannot update resource {0}/{1}, because it doesn't exist on this server",
+        //            key.TypeName, key.ResourceId);
+        //    }   
+
+        //    Interaction interaction = Interaction.PUT(key, resource);
+        //    interaction.Resource.AffixTags(original.Resource);
+
+        //    transfer.Internalize(interaction);
+        //    Store(interaction);
+
+        //    // todo: does this require a response?
+        //    transfer.Externalize(interaction);
+        //    return Respond.WithEntry(HttpStatusCode.OK, interaction);
+        //}
+
+        public FhirResponse VersionSpecificUpdate(IKey versionedkey, Resource resource, ClaimsPrincipal principal)
         {
             Validate.HasTypeName(versionedkey);
             Validate.HasVersion(versionedkey);
+
             Key key = versionedkey.WithoutVersion();
-            Entry current = GetFeature<IResourceStorageService>().Get(key);
+            Entry current = fhirStore.Get(key, principal);
             Validate.IsSameVersion(current.Key, versionedkey);
 
-            return this.Put(key, resource);
+            return this.Put(key, resource, principal);
         }
 
-        public FhirResponse Update(IKey key, Resource resource)
+        /// <summary>
+        /// Updates a resource if it exist on the given id, or creates the resource if it is new.
+        /// If a VersionId is included a version specific update will be attempted.
+        /// </summary>
+        /// <returns>200 OK (on success)</returns>
+        public FhirResponse Update(IKey key, Resource resource, ClaimsPrincipal principal)
         {
-            return key.HasVersionId() ? this.VersionSpecificUpdate(key, resource)
-                : this.Put(key, resource);
+            if (key.HasVersionId())
+            {
+                return this.VersionSpecificUpdate(key, resource, principal);
+            }
+            else
+            {
+                return this.Put(key, resource, principal);
+            }
         }
 
-        public FhirResponse ConditionalUpdate(IKey key, Resource resource, IEnumerable<Tuple<string, string>> parameters)
+        public FhirResponse ConditionalUpdate(Key key, Resource resource, SearchParams _params, ClaimsPrincipal principal)
         {
-            return ConditionalUpdate(key, resource, SearchParams.FromUriParamList(parameters));
+            Key existing = fhirIndex.FindSingle(key.TypeName, _params).WithoutVersion();
+            return this.Update(existing, resource, principal);
         }
 
-        public FhirResponse ConditionalUpdate(IKey key, Resource resource, SearchParams _params)
-        {
-            //if update receives a key with no version how do we handle concurrency?
-            ISearchService searchStore = this.FindExtension<ISearchService>();
-            ITransactionService transactionService = this.FindExtension<ITransactionService>();
-            if (searchStore == null || transactionService == null)
-                throw new NotSupportedException("Operation not supported");
-            return transactionService.HandleTransaction(
-                ResourceManipulationOperationFactory.CreatePut(resource, key, searchStore, _params),
-                this);
-        }
-
-        public FhirResponse Delete(IKey key)
+        /// <summary>
+        /// Delete a resource.
+        /// </summary>
+        /// <param name="collection">The resource type, in lowercase</param>
+        /// <param name="id">The id part of a Resource id</param>
+        /// <remarks>
+        /// Upon successful deletion the server should return 
+        ///   * 204 (No Content). 
+        ///   * If the resource does not exist on the server, the server must return 404 (Not found).
+        ///   * Performing this operation on a resource that is already deleted has no effect, and should return 204 (No Content).
+        /// </remarks>
+        public FhirResponse Delete(IKey key, ClaimsPrincipal principal)
         {
             Validate.Key(key);
             Validate.HasNoVersion(key);
 
-            var resourceStorage = GetFeature<IResourceStorageService>();
+            Entry current = fhirStore.Get(key, principal);
 
-            Entry current = resourceStorage.Get(key);
             if (current != null && current.IsPresent)
             {
-                return Delete(Entry.DELETE(key, DateTimeOffset.UtcNow));
+                // Add a new deleted-entry to mark this entry as deleted
+                //Entry deleted = importer.ImportDeleted(location);
+                key = keyGenerator.NextHistoryKey(key);
+                Entry deleted = Entry.DELETE(key, DateTimeOffset.UtcNow);
+
+                Store(deleted, principal);
             }
             return Respond.WithCode(HttpStatusCode.NoContent);
-
         }
 
-        public FhirResponse Delete(Entry entry)
+        public FhirResponse ConditionalDelete(Key key, IEnumerable<Tuple<string, string>> parameters)
         {
-            Validate.Key(entry.Key);
-            Store(entry);
-            return Respond.WithCode(HttpStatusCode.NoContent);
+            // DSTU2: transaction
+            throw new NotImplementedException("This will be implemented after search in DSTU2");
+            // searcher.search(parameters)
+            // assert count = 1
+            // get result id
+
+            //string id = "to-implement";
+
+            //key.ResourceId = id;
+            //Interaction deleted = Interaction.DELETE(key, DateTimeOffset.UtcNow);
+            //store.Add(deleted);
+            //return Respond.WithCode(HttpStatusCode.NoContent);
         }
 
-        public FhirResponse ConditionalDelete(IKey key, IEnumerable<Tuple<string, string>> parameters)
+        public FhirResponse HandleInteraction(Entry interaction, ClaimsPrincipal principal)
         {
-            return ConditionalDelete(key, SearchParams.FromUriParamList(parameters));
+            switch (interaction.Method)
+            {
+                case Bundle.HTTPVerb.PUT: return this.Update(interaction.Key, interaction.Resource, principal);
+                case Bundle.HTTPVerb.POST: return this.Create(interaction.Key, interaction.Resource, principal);
+                case Bundle.HTTPVerb.DELETE: return this.Delete(interaction.Key, principal);
+                default: return Respond.Success;
+            }
         }
 
-        public FhirResponse ConditionalDelete(IKey key, SearchParams _params)
+        // These should eventually be Interaction! = FhirRequests. Not Entries.
+        public FhirResponse Transaction(IList<Entry> interactions, ClaimsPrincipal principal)
         {
-            ISearchService searchStore = this.FindExtension<ISearchService>();
-            ITransactionService transactionService = this.FindExtension<ITransactionService>();
-            if (searchStore == null || transactionService == null)
-                throw new NotSupportedException("Operation not supported");
+            transfer.Internalize(interactions);
 
-            return transactionService.HandleTransaction(ResourceManipulationOperationFactory.CreateDelete(key, searchStore, _params),
-                this)??  Respond.WithCode(HttpStatusCode.NotFound);
+            var resources = new List<Resource>();
+
+            foreach (Entry interaction in interactions)
+            {
+                FhirResponse response = HandleInteraction(interaction, principal);
+
+                if (!response.IsValid) return response;
+                resources.Add(response.Resource);
+            }
+
+            transfer.Externalize(interactions);
+
+            Bundle bundle = localhost.CreateBundle(Bundle.BundleType.TransactionResponse).Append(interactions);
+
+            return Respond.WithBundle(bundle);
         }
 
-        public FhirResponse ValidateOperation(IKey key, Resource resource)
+        public FhirResponse Transaction(Bundle bundle, ClaimsPrincipal principal)
+        {
+            var interactions = localhost.GetEntries(bundle);
+            transfer.Internalize(interactions);
+
+            fhirStore.Add(interactions, principal);
+            fhirIndex.Process(interactions);
+            transfer.Externalize(interactions);
+
+            bundle = localhost.CreateBundle(Bundle.BundleType.TransactionResponse).Append(interactions);
+
+            return Respond.WithBundle(bundle);
+        }
+
+        public FhirResponse History(HistoryParameters parameters, ClaimsPrincipal principal)
+        {
+            var since = parameters.Since ?? DateTimeOffset.MinValue;
+            Uri link = localhost.Uri(RestOperation.HISTORY);
+
+            IEnumerable<string> keys = fhirStore.History(since);
+            var snapshot = pager.CreateSnapshot(Bundle.BundleType.History, link, keys, parameters.SortBy, parameters.Count, null);
+            Bundle bundle = pager.GetFirstPage(snapshot, principal);
+
+            // DSTU2: export
+            // exporter.Externalize(bundle);
+            return Respond.WithBundle(bundle);
+        }
+
+        public FhirResponse History(string type, HistoryParameters parameters, ClaimsPrincipal principal)
+        {
+            Validate.TypeName(type);
+            Uri link = localhost.Uri(type, RestOperation.HISTORY);
+
+            IEnumerable<string> keys = fhirStore.History(type, parameters.Since);
+            var snapshot = pager.CreateSnapshot(Bundle.BundleType.History, link, keys, parameters.SortBy, parameters.Count, null);
+            Bundle bundle = pager.GetFirstPage(snapshot, principal);
+
+            return Respond.WithResource(bundle);
+        }
+
+        public FhirResponse History(Key key, HistoryParameters parameters, ClaimsPrincipal principal)
+        {
+            if (!fhirStore.Exists(key))
+            {
+                return Respond.NotFound(key);
+            }
+
+            Uri link = localhost.Uri(key);
+
+            IEnumerable<string> keys = fhirStore.History(key, parameters.Since);
+            var snapshot = pager.CreateSnapshot(Bundle.BundleType.History, link, keys, parameters.SortBy, parameters.Count);
+            Bundle bundle = pager.GetFirstPage(snapshot, principal);
+
+            return Respond.WithResource(key, bundle);
+        }
+
+        public FhirResponse Mailbox(Bundle bundle, Binary body)
+        {
+            // DSTU2: mailbox
+            /*
+            if(bundle == null || body == null) throw new SparkException("Mailbox requires a Bundle body payload"); 
+            // For the connectathon, this *must* be a document bundle
+            if (bundle.GetBundleType() != BundleType.Document)
+                throw new SparkException("Mailbox endpoint currently only accepts Document feeds");
+
+            Bundle result = new Bundle("Transaction result from posting of Document " + bundle.Id, DateTimeOffset.Now);
+
+            // Build a binary with the original body content (=the unparsed Document)
+            var binaryEntry = new ResourceEntry<Binary>(KeyHelper.NewCID(), DateTimeOffset.Now, body);
+            binaryEntry.SelfLink = KeyHelper.NewCID();
+
+            // Build a new DocumentReference based on the 1 composition in the bundle, referring to the binary
+            var compositions = bundle.Entries.OfType<ResourceEntry<Composition>>();
+            if (compositions.Count() != 1) throw new SparkException("Document feed should contain exactly 1 Composition resource");
+            
+            var composition = compositions.First().Resource;
+            var reference = ConnectathonDocumentScenario.DocumentToDocumentReference(composition, bundle, body, binaryEntry.SelfLink);
+
+            // Start by copying the original entries to the transaction, minus the Composition
+            List<BundleEntry> entriesToInclude = new List<BundleEntry>();
+
+            //if(reference.Subject != null) entriesToInclude.AddRange(bundle.Entries.ById(new Uri(reference.Subject.Reference)));
+            //if (reference.Author != null) entriesToInclude.AddRange(
+            //         reference.Author.Select(auth => bundle.Entries.ById(auth.Id)).Where(be => be != null));
+            //reference.Subject = composition.Subject;
+            //reference.Author = new List<ResourceReference>(composition.Author);
+            //reference.Custodian = composition.Custodian;
+
+            foreach (var entry in bundle.Entries.Where(be => !(be is ResourceEntry<Composition>)))
+            {
+                result.Entries.Add(entry);
+            }
+
+            // Now add the newly constructed DocumentReference and the Binary
+            result.Entries.Add(new ResourceEntry<DocumentReference>(KeyHelper.NewCID(), DateTimeOffset.Now, reference));
+            result.Entries.Add(binaryEntry);
+
+            // Process the constructed bundle as a Transaction and return the result
+            return Transaction(result);
+            */
+            return Respond.WithError(HttpStatusCode.NotImplemented);
+        }
+
+        /*
+        public TagList TagsFromServer()
+        {
+            IEnumerable<Tag> tags = tagstore.Tags();
+            return new TagList(tags);
+        }
+        
+        public TagList TagsFromResource(string resourcetype)
+        {
+            RequestValidator.ValidateCollectionName(resourcetype);
+            IEnumerable<Tag> tags = tagstore.Tags(resourcetype);
+            return new TagList(tags);
+        }
+
+
+        public TagList TagsFromInstance(string collection, string id)
+        {
+            Uri key = BuildKey(collection, id);
+            BundleEntry entry = store.Get(key);
+
+            if (entry == null)
+                throwNotFound("Cannot retrieve tags because entry {0}/{1} does not exist", collection, id);
+
+            return new TagList(entry.Tags);
+         }
+
+
+        public TagList TagsFromHistory(string collection, string id, string vid)
+        {
+            Uri key = BuildKey(collection, id, vid);
+            BundleEntry entry = store.Get(key);
+
+            if (entry == null)
+                throwNotFound("Cannot retrieve tags because entry {0}/{1} does not exist", collection, id, vid); 
+           
+            else if (entry is DeletedEntry)
+            {
+                throw new SparkException(HttpStatusCode.Gone,
+                    "A {0} resource with version {1} and id {2} exists, but it is a deletion (deleted on {3}).",
+                    collection, vid, id, (entry as DeletedEntry).When);
+            }
+
+            return new TagList(entry.Tags);
+        }
+
+        public void AffixTags(string collection, string id, IEnumerable<Tag> tags)
+        {
+            if (tags == null) throw new SparkException("No tags specified on the request");
+            Uri key = BuildKey(collection, id);
+            BundleEntry entry = store.Get(key);
+            
+            if (entry == null)
+                throw new SparkException(HttpStatusCode.NotFound, "Could not set tags. The resource was not found.");
+
+            entry.AffixTags(tags);
+            store.Add(entry);
+        }
+
+        public void AffixTags(string collection, string id, string vid, IEnumerable<Tag> tags)
+        {
+            Uri key = BuildKey(collection, id, vid);
+            if (tags == null) throw new SparkException("No tags specified on the request");
+
+            BundleEntry entry = store.Get(key);
+            if (entry == null)
+                throw new SparkException(HttpStatusCode.NotFound, "Could not set tags. The resource was not found.");
+
+            entry.AffixTags(tags);
+            store.Replace(entry);   
+        }
+
+        public void RemoveTags(string collection, string id, IEnumerable<Tag> tags)
+        {
+            if (tags == null) throw new SparkException("No tags specified on the request");
+
+            Uri key = BuildKey(collection, id);
+            BundleEntry entry = store.Get(key);
+            if (entry == null)
+                throw new SparkException(HttpStatusCode.NotFound, "Could not set tags. The resource was not found.");
+
+            if (entry.Tags != null)
+            {
+                entry.Tags = entry.Tags.Exclude(tags).ToList();
+            }
+            
+            store.Replace(entry);
+        }
+
+        public void RemoveTags(string collection, string id, string vid, IEnumerable<Tag> tags)
+        {
+            if (tags == null) throw new SparkException("Can not delete tags if no tags specified were specified");
+
+            Uri key = BuildKey(collection, id, vid);
+
+            ResourceEntry entry = (ResourceEntry)store.Get(key);
+            if (entry == null)
+                throw new SparkException(HttpStatusCode.NotFound, "Could not set tags. The resource was not found.");
+
+
+            if (entry.Tags != null)
+                entry.Tags = entry.Tags.Exclude(tags).ToList();
+
+            store.Replace(entry);
+        }
+        */
+
+        public FhirResponse ValidateOperation(Key key, Resource resource)
         {
             if (resource == null) throw Error.BadRequest("Validate needs a Resource in the body payload");
+            //if (entry.Resource == null) throw new SparkException("Validate needs a Resource in the body payload");
+
+            //  DSTU2: validation
+            // entry.Resource.Title = "Validation test entity";
+            // entry.LastUpdated = DateTime.Now;
+            // entry.Id = id != null ? ResourceIdentity.Build(Endpoint, collection, id) : null;
+
             Validate.ResourceType(key, resource);
 
             // DSTU2: validation
@@ -270,148 +657,68 @@ namespace Spark.Engine.Service
                 return Respond.WithResource(422, outcome);
         }
 
-        public FhirResponse Search(string type, SearchParams searchCommand, int pageIndex = 0)
+        public FhirResponse Conformance()
         {
-            ISearchService searchService = this.GetFeature<ISearchService>();
+            var conformance = DependencyCoupler.Inject<Conformance>();
+            return Respond.WithResource(conformance);
 
-            Snapshot snapshot = searchService.GetSnapshot(type, searchCommand);
+            // DSTU2: conformance
+            //var conformance = ConformanceBuilder.Build();
 
-            return CreateSnapshotResponse(snapshot, pageIndex);
+            //return Respond.WithResource(conformance);
+
+            //var entry = new ResourceEntry<Conformance>(KeyHelper.NewCID(), DateTimeOffset.Now, conformance);
+            //return entry;
+
+            //Uri location =
+            //     ResourceIdentity.Build(
+            //        ConformanceBuilder.CONFORMANCE_COLLECTION_NAME,
+            //        ConformanceBuilder.CONFORMANCE_ID
+            //    ).OperationPath;
+
+            //BundleEntry conformance = _store.FindEntryById(location);
+
+            //if (conformance == null || !(conformance is ResourceEntry))
+            //{
+            //    throw new SparkException(
+            //        HttpStatusCode.InternalServerError,
+            //        "Cannot find an installed conformance statement for this server. Has it been initialized?");
+            //}
+            //else
+            //    return (ResourceEntry)conformance;
         }
 
-        private FhirResponse CreateSnapshotResponse(Snapshot snapshot, int pageIndex = 0)
+        public FhirResponse GetPage(string snapshotkey, int index, ClaimsPrincipal principal)
         {
-            IPagingService pagingExtension = this.FindExtension<IPagingService>();
-            IResourceStorageService resourceStorage = this.FindExtension<IResourceStorageService>();
-            if (pagingExtension == null)
+            Bundle bundle = pager.GetPage(snapshotkey, index, principal);
+            return Respond.WithBundle(bundle);
+        }
+
+        private void Store(Entry entry, ClaimsPrincipal principal)
+        {
+            fhirStore.Add(entry, principal);
+
+            //CK: try the new indexing service.
+            if (_indexService != null)
             {
-                Bundle bundle = new Bundle()
-                {
-                    Type = snapshot.Type,
-                    Total = snapshot.Count
-                };
-                bundle.Append(resourceStorage.Get(snapshot.Keys));
-                return responseFactory.GetFhirResponse(bundle);
+                _indexService.Process(entry);
             }
-            else
+
+            else if (fhirIndex != null)
             {
-                Bundle bundle = pagingExtension.StartPagination(snapshot).GetPage(pageIndex);
-                return responseFactory.GetFhirResponse(bundle);
+                //TODO: If IndexService is working correctly, remove the reference to fhirIndex.
+                fhirIndex.Process(entry);
             }
-        }
 
-        public FhirResponse Transaction(IList<Entry> interactions)
-        {
-            ITransactionService transactionExtension = this.GetFeature<ITransactionService>();
-            return responseFactory.GetFhirResponse(
-                transactionExtension.HandleTransaction(interactions, this), 
-                Bundle.BundleType.TransactionResponse);
-        }
 
-        public FhirResponse Transaction(Bundle bundle)
-        {
-            ITransactionService transactionExtension = this.GetFeature<ITransactionService>();
-            return responseFactory.GetFhirResponse(
-                transactionExtension.HandleTransaction(bundle, this), 
-                Bundle.BundleType.TransactionResponse);
-        }
-
-        public FhirResponse History(HistoryParameters parameters)
-        {
-            IHistoryService historyExtension = this.GetFeature<IHistoryService>();
-        
-            return CreateSnapshotResponse(historyExtension.History(parameters));
-        }
-
-        public FhirResponse History(string type, HistoryParameters parameters)
-        {
-            IHistoryService historyExtension = this.GetFeature<IHistoryService>();
-
-            return CreateSnapshotResponse(historyExtension.History(type, parameters));
-        }
-
-        public FhirResponse History(IKey key, HistoryParameters parameters)
-        {
-            IResourceStorageService storageService = GetFeature<IResourceStorageService>();
-            if (storageService.Get(key) == null)
+            if (serviceListener != null)
             {
-                return Respond.NotFound(key);
-            }
-            IHistoryService historyExtension = this.GetFeature<IHistoryService>();
-
-            return CreateSnapshotResponse(historyExtension.History(key, parameters));
-        }
-
-        public FhirResponse Mailbox(Bundle bundle, Binary body)
-        {
-            throw new NotImplementedException();
-        }
-
-        public FhirResponse Conformance(string sparkVersion)
-        {
-            IConformanceService conformanceService = this.GetFeature<IConformanceService>();
-
-            return Respond.WithResource(conformanceService.GetSparkConformance(sparkVersion));
-        }
-
-        public FhirResponse GetPage(string snapshotkey, int index)
-        {
-            IPagingService pagingExtension = this.FindExtension<IPagingService>();
-            if (pagingExtension == null)
-                throw new NotSupportedException("Operation not supported");
-
-            return responseFactory.GetFhirResponse(pagingExtension.StartPagination(snapshotkey).GetPage(index));
-        }
-
-        public FhirResponse HandleInteraction(Entry interaction)
-        {
-            switch (interaction.Method)
-            {
-                case Bundle.HTTPVerb.PUT:
-                    return this.Put(interaction);
-                case Bundle.HTTPVerb.POST:
-                    return this.Create(interaction);
-                case Bundle.HTTPVerb.DELETE:
-                    return this.Delete(interaction);
-                case Bundle.HTTPVerb.GET:
-                    return this.VersionRead((Key)interaction.Key);
-                default:
-                    return Respond.Success;
+                Uri location = localhost.GetAbsoluteUri(entry.Key);
+                // todo: what we want is not to send localhost to the listener, but to add the Resource.Base. But that is not an option in the current infrastructure.
+                // It would modify interaction.Resource, while 
+                serviceListener.Inform(location, entry);
             }
         }
 
-        private static void ValidateKey(IKey key, bool withVersion = false)
-        {
-            Validate.HasTypeName(key);
-            Validate.HasResourceId(key);
-            if (withVersion)
-            {
-                Validate.HasVersion(key);
-            }
-            else
-            {
-                Validate.HasNoVersion(key);
-            }
-            Validate.Key(key);
-        }
-
-        private T GetFeature<T>() where T: IFhirServiceExtension
-        {
-            //TODO: return 501 - 	Requested HTTP operation not supported?
-
-            T feature = this.FindExtension<T>();
-            if (feature == null)
-                throw new NotSupportedException("Operation not supported");
-
-            return feature;
-        }
-
-        internal Entry Store(Entry entry)
-        {
-            Entry result = GetFeature<IResourceStorageService>()
-             .Add(entry);
-            serviceListener.Inform(entry);
-            return result;
-        }
     }
 }

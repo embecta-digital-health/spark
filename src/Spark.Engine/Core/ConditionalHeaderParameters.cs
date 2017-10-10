@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using Microsoft.AspNetCore.Http;
 using Spark.Engine.Extensions;
 
 namespace Spark.Engine.Core
@@ -11,10 +12,11 @@ namespace Spark.Engine.Core
         {
             
         }
-        public ConditionalHeaderParameters(HttpRequestMessage request)
+        public ConditionalHeaderParameters(HttpRequest request)
         {
-            IfNoneMatchTags = request.IfNoneMatch();
-            IfModifiedSince = request.IfModifiedSince();
+            throw new NotImplementedException();
+//            IfNoneMatchTags = request.IfNoneMatch();
+//            IfModifiedSince = request.IfModifiedSince();
         }
 
         public IEnumerable<string> IfNoneMatchTags { get; set; }

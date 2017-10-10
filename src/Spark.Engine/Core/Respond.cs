@@ -112,6 +112,10 @@ namespace Spark.Engine.Core
 
         public static FhirResponse NotFound(IKey key)
         {
+            if (key == null)
+            {
+                return Respond.WithError(HttpStatusCode.NotFound, "Search returned no results.  ");
+            }
             if (key.VersionId == null)
             {
                 return Respond.WithError(HttpStatusCode.NotFound, "No {0} resource with id {1} was found.", key.TypeName, key.ResourceId);

@@ -9,16 +9,34 @@
 using Hl7.Fhir.Rest;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using Spark.Engine.Core;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Primitives;
 
 namespace Spark.Engine.Extensions
 {
     public static class HttpRequestExtensions
     {
-        
+        public static void ClearNamedHeaders(HttpRequest request, string headerName)
+        {
+            IHeaderDictionary newHeaders = new HeaderDictionary();
+            foreach (KeyValuePair<string, StringValues> keyValuePair in request.Headers)
+            {
+                if (keyValuePair.Key != headerName)
+                {
+                    newHeaders.Add(keyValuePair);
+                }
+            }
+            request.Headers.Clear();
+            foreach (KeyValuePair<string, StringValues> keyValuePair in newHeaders)
+            {
+                request.Headers.Add(keyValuePair);
+            }
+        }
+
         public static bool Exists(this HttpHeaders headers, string key)
         {
             IEnumerable<string> values;
@@ -47,54 +65,60 @@ namespace Spark.Engine.Extensions
             else return null;
         }
         
-        public static void ReplaceHeader(this HttpRequestMessage request, string header, string value)
+        public static void ReplaceHeader(this HttpRequest request, string header, string value)
         {
-            request.Headers.Replace(header, value);
+            throw new NotImplementedException();
+//            request.Headers.Replace(header, value);
         }
 
-        public static string Header(this HttpRequestMessage request, string key)
+        public static string Header(this HttpRequest request, string key)
         {
-            IEnumerable<string> values;
-            if (request.Content.Headers.TryGetValues(key, out values))
+            if (request.Headers.TryGetValue(key, out StringValues values))
             {
                 return values.FirstOrDefault();
             }
-            else return null;
-        }
-        
-        public static string GetParameter(this HttpRequestMessage request, string key)
-        {
-            foreach (var param in request.GetQueryNameValuePairs())
-            {
-                if (param.Key == key) return param.Value;
-            }
             return null;
         }
+        
+        public static string GetParameter(this HttpRequest request, string key)
+        {
+//            foreach (var param in request.GetQueryNameValuePairs())
+//            {
+//                if (param.Key == key) return param.Value;
+//            }
+//            return null;
+            if (!request.Query.Keys.Contains(key))
+            {
+                return null;
+            }
+            if (request.Query.TryGetValue(key, out StringValues values))
+            {
+                return values.FirstOrDefault();
+            }
+            return null;
 
-        public static List<Tuple<string, string>> TupledParameters(this HttpRequestMessage request)
+        }
+
+        public static List<Tuple<string, string>> TupledParameters(this HttpRequest request)
         {
             var list = new List<Tuple<string, string>>();
 
-            IEnumerable<KeyValuePair<string, string>> query = request.GetQueryNameValuePairs();
-            foreach (var pair in query)
+            foreach (var pair in request.Query)
             {
                 list.Add(new Tuple<string, string>(pair.Key, pair.Value));
             }
             return list;
         }
 
-        public static SearchParams GetSearchParams(this HttpRequestMessage request)
+        public static SearchParams GetSearchParams(this HttpRequest request)
         {
             var parameters = request.TupledParameters().Where(tp => tp.Item1 != "_format");
+            UriParamList actualParameters = new UriParamList(parameters);
             var searchCommand = SearchParams.FromUriParamList(parameters);
             return searchCommand;
         }
     }
 
-    public static class FhirHttpHeaders
-    {
-        public const string IfNoneExist = "If-None-Exist";
-    }
     public static class HttpHeadersFhirExtensions
     {
         public static bool IsSummary(this HttpHeaders headers)

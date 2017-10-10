@@ -1,12 +1,9 @@
-using System.Diagnostics;
-using System.Net;
-using System.Net.Http;
+using System;
 using System.Web.Http.ExceptionHandling;
-using System.Web.Http.Results;
-using Spark.Engine.Core;
 
 namespace Spark.Engine.ExceptionHandling
 {
+    [Obsolete("handlers no longer used in .net core")]
     public class FhirGlobalExceptionHandler : ExceptionHandler
     {
         private readonly IExceptionResponseMessageFactory exceptionResponseMessageFactory;
@@ -16,16 +13,17 @@ namespace Spark.Engine.ExceptionHandling
             this.exceptionResponseMessageFactory = exceptionResponseMessageFactory;
         }
 
+        public override void Handle(ExceptionHandlerContext context)
+        {
+            throw new NotImplementedException();
+//            HttpResponse responseMessage = exceptionResponseMessageFactory.GetResponseOutcome(context.Exception,
+//                context);
+//            context.Result = new ResponseMessageResult(responseMessage);
+        }
+
         public override bool ShouldHandle(ExceptionHandlerContext context)
         {
             return true;
-        }
-
-        public override void Handle(ExceptionHandlerContext context)
-        {
-            HttpResponseMessage responseMessage = exceptionResponseMessageFactory.GetResponseMessage(context.Exception,
-                context.Request);
-            context.Result = new ResponseMessageResult(responseMessage);
         }
     }
 }

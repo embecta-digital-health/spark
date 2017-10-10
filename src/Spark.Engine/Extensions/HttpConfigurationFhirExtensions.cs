@@ -2,7 +2,6 @@
 using System.Web.Http.Validation;
 using System.Net.Http.Formatting;
 using System.Web.Http.ExceptionHandling;
-using Spark.Filters;
 using Spark.Handlers;
 using Spark.Formatters;
 using Spark.Core;
@@ -31,8 +30,8 @@ namespace Spark.Engine.Extensions
 
         public static void AddFhirExceptionHandling(this HttpConfiguration config)
         {
-            config.Filters.Add(new FhirExceptionFilter(new ExceptionResponseMessageFactory()));
-            config.Services.Replace(typeof(IExceptionHandler), new FhirGlobalExceptionHandler(new ExceptionResponseMessageFactory()));
+//            config.Filters.Add(new FhirGlobalExceptionFilter(new ExceptionResponseMessageFactory()));
+//            config.Services.Replace(typeof(IExceptionHandler), new FhirGlobalExceptionHandler(new ExceptionResponseMessageFactory()));
         }
         
         public static void AddFhirMessageHandlers(this HttpConfiguration config)
