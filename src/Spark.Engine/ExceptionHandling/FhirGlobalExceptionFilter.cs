@@ -10,7 +10,6 @@
 using System;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Internal;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -49,9 +48,7 @@ namespace Spark.Engine.ExceptionHandling
 
             _logger.LogError("From " + this.GetType().Name + ": " + exceptionContext.Exception.Message);
             IActionResult actionResult = _exceptionResponseMessageFactory.GetResponseOutcome(exceptionContext.Exception);
-            //exceptionContext.HttpContext.Request.EnableRewind();
             RaygunClient raygunClient = _clientProvider.GetClient(_settings.Value, exceptionContext.HttpContext);
-            
             raygunClient.SendInBackground(exceptionContext.Exception);
             exceptionContext.Result = (actionResult);
 

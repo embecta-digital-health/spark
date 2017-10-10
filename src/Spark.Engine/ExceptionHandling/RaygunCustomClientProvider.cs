@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
@@ -18,10 +17,6 @@ namespace Spark.Engine.ExceptionHandling
             RaygunClient client = base.GetClient(settings, context);
 
             var identity = context?.User?.Identity as ClaimsIdentity;
-#if DEBUG
-            client.IsRawDataIgnored = false;
-#endif
-            client.User = identity?.Name;
             if (identity?.IsAuthenticated == true)
             {
 //                string email = identity.Claims.Where(c => c.Type == ClaimTypes.Email).Select(c => c.Value).FirstOrDefault();
@@ -32,7 +27,6 @@ namespace Spark.Engine.ExceptionHandling
                     IsAnonymous = false,
                     FullName = identity.Name,
                     Identifier = string.Join(", ",roles)
-                    
                 };
             }
 
