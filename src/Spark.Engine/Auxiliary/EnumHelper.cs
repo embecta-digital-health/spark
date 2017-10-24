@@ -1,5 +1,6 @@
 ﻿using Hl7.Fhir.Introspection;
 using System;
+using Hl7.Fhir.Utility;
 
 namespace Spark.Engine.Auxiliary
 {
@@ -8,12 +9,14 @@ namespace Spark.Engine.Auxiliary
 
         public static string GetLiteral(Enum item)
         {
-            Type type = item.GetType();
-            EnumMapping mapping = EnumMapping.Create(type);
+//            Type type = item.GetType();
+//            EnumMapping mapping = EnumMapping.Create(type);
+//
+//            // Caching these mappings should probably optimize performance. But for now load seems managable.
+//            string literal = mapping.GetLiteral(item);
+//            return literal;
 
-            // Caching these mappings should probably optimize performance. But for now load seems managable.
-            string literal = mapping.GetLiteral(item);
-            return literal;
+            return item.GetLiteral();
         }
 
     }

@@ -1,14 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Hl7.Fhir.Introspection;
 using Hl7.Fhir.Model;
-using static Hl7.Fhir.Model.ModelInfo;
+using Hl7.Fhir.Utility;
 using Spark.Engine.Extensions;
-using Hl7.Fhir.Introspection;
-using System.Reflection;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
+using static Hl7.Fhir.Model.ModelInfo;
 
 namespace Spark.Engine.Core
 {
@@ -31,12 +30,12 @@ namespace Spark.Engine.Core
             _csTypeToFhirTypeName = csTypeToFhirTypeNameMapping;
             _fhirTypeNameToCsType = _csTypeToFhirTypeName.ToLookup(pair => pair.Value, pair => pair.Key).ToDictionary(group => group.Key, group => group.FirstOrDefault());
 
-            _enumMappings = new List<EnumMapping>();
+            _enumMappings = new List<ClassMapping>();
             foreach (var enumType in enums)
             {
-                if (EnumMapping.IsMappableEnum(enumType))
+                if (ClassMapping.IsMappableType(enumType))
                 {
-                    _enumMappings.Add(EnumMapping.Create(enumType));
+                    _enumMappings.Add(ClassMapping.Create(enumType));
                 }
             }
         }
@@ -50,11 +49,12 @@ namespace Spark.Engine.Core
             LoadAssembly(fhirAssembly);
         }
 
+
         public void LoadAssembly(Assembly fhirAssembly)
         {
             _csTypeToFhirTypeName = new Dictionary<Type, string>();
             _fhirTypeNameToCsType = new Dictionary<string, Type>();
-            _enumMappings = new List<EnumMapping>();
+            _enumMappings = new List<ClassMapping>();
 
             foreach (Type fhirType in fhirAssembly.GetTypes())
             {
@@ -83,16 +83,16 @@ namespace Spark.Engine.Core
                         }
                     }
                 }
-                else if (EnumMapping.IsMappableEnum(fhirType))
+                else if (ClassMapping.IsMappableType(fhirType))
                 {
-                    _enumMappings.Add(EnumMapping.Create(fhirType));
+                    _enumMappings.Add(ClassMapping.Create(fhirType));
                 }
             }
         }
 
         private void LoadSearchParameters(IEnumerable<SearchParamDefinition> searchParameters)
         {
-            _searchParameters = searchParameters.Select(sp => createSearchParameterFromSearchParamDefinition(sp)).ToList();
+            _searchParameters = searchParameters.Select(sp => CreateSearchParameterFromSearchParamDefinition(sp)).ToList();
             LoadGenericSearchParameters();
         }
 
@@ -118,14 +118,14 @@ namespace Spark.Engine.Core
             //};
             //Not implemented (yet): _query, _text, _content
 
-            var genericSearchParameters = genericSearchParamDefinitions.Select(spd => createSearchParameterFromSearchParamDefinition(spd));
+            var genericSearchParameters = genericSearchParamDefinitions.Select(CreateSearchParameterFromSearchParamDefinition);
 
             _searchParameters.AddRange(genericSearchParameters.Except(_searchParameters));
             //We have no control over the incoming list of searchParameters (in the constructor), so these generic parameters may or may not be in there.
             //So we apply the Except operation to make sure these parameters are not added twice.
         }
 
-        private SearchParameter createSearchParameterFromSearchParamDefinition(SearchParamDefinition def)
+        private SearchParameter CreateSearchParameterFromSearchParamDefinition(SearchParamDefinition def)
         {
             var result = new SearchParameter();
             result.Name = def.Name;
@@ -146,7 +146,7 @@ namespace Spark.Engine.Core
 
         private Dictionary<Type, string> _csTypeToFhirTypeName;
         private Dictionary<string, Type> _fhirTypeNameToCsType;
-        private List<EnumMapping> _enumMappings;
+        private List<ClassMapping> _enumMappings;
 
         private List<SearchParameter> _searchParameters;
         public List<SearchParameter> SearchParameters
@@ -231,7 +231,8 @@ namespace Spark.Engine.Core
 
         public string GetLiteralForEnum(Enum value)
         {
-            return _enumMappings.FirstOrDefault(em => em.EnumType == value.GetType())?.GetLiteral(value);
+//            return _enumMappings.FirstOrDefault(em => em.EnumType == value.GetType())?.GetLiteral(value);//0.90.5-alpha way
+            return value.GetLiteral();
         }
     }
 }

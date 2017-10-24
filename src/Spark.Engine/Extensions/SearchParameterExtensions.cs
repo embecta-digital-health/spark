@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Hl7.Fhir.Utility;
 
 namespace Spark.Engine.Extensions
 {

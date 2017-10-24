@@ -20,6 +20,7 @@ using Spark.Engine.Auxiliary;
 using Spark.Engine.Interfaces;
 using Spark.Engine.Logging;
 using Spark.Engine.Service;
+using RestOperation = Spark.Engine.Auxiliary.RestOperation;
 
 namespace Spark.Service
 {
