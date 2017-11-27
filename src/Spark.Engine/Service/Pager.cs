@@ -24,7 +24,7 @@ namespace Spark.Service
     {
         IFhirStore fhirStore;
         ISnapshotStore snapshotstore;
-        ILocalhost localhost;
+        
         Transfer transfer;
         IList<ModelInfo.SearchParamDefinition> searchParameters;
         private IAuthorizationService _authService;
@@ -32,24 +32,24 @@ namespace Spark.Service
         public const int MAX_PAGE_SIZE = 700;//todo move to settings
         public const int DEFAULT_PAGE_SIZE = 20;//todo move to settings
 
-        public Pager(IFhirStore fhirStore, ISnapshotStore snapshotstore, ILocalhost localhost, Transfer transfer, 
+        public Pager(IFhirStore fhirStore, ISnapshotStore snapshotstore, Transfer transfer, 
             List<ModelInfo.SearchParamDefinition> searchParameters, IAuthorizationService authService)
         {
             this.fhirStore = fhirStore;
             this.snapshotstore = snapshotstore;
-            this.localhost = localhost;
+            
             this.transfer = transfer;
             this.searchParameters = searchParameters;
             _authService = authService;
         }
 
-        public Bundle GetPage(string snapshotkey, int start, ClaimsPrincipal principal)
+        public Bundle GetPage(string snapshotkey, int start, ClaimsPrincipal principal, ILocalhost localhost)
         {
             Snapshot snapshot = snapshotstore.GetSnapshot(snapshotkey);
-            return GetPage(snapshot, principal, start);
+            return GetPage(snapshot, principal, localhost, start);
         }
 
-        public Bundle GetPage(Snapshot snapshot, ClaimsPrincipal principal, int? start = null)
+        public Bundle GetPage(Snapshot snapshot, ClaimsPrincipal principal, ILocalhost localhost, int? start = null)
         {
             //if (pagesize > MAX_PAGE_SIZE) pagesize = MAX_PAGE_SIZE;
 
@@ -63,12 +63,12 @@ namespace Spark.Service
                     snapshot.Keys.Count(), snapshot.Id);
             }
 
-            return this.CreateBundle(snapshot, principal, start);
+            return this.CreateBundle(snapshot, principal, localhost, start);
         }
 
-        public Bundle GetFirstPage(Snapshot snapshot, ClaimsPrincipal principal)
+        public Bundle GetFirstPage(Snapshot snapshot, ClaimsPrincipal principal, ILocalhost localhost)
         {
-            Bundle bundle = this.GetPage(snapshot,principal);
+            Bundle bundle = this.GetPage(snapshot,principal, localhost);
             return bundle;
         }
 
@@ -127,7 +127,7 @@ namespace Spark.Service
             return CreateSnapshot(Bundle.BundleType.Searchset, selflink, keys, sort, count, searchCommand.Include);
         }
 
-        public Bundle CreateBundle(Snapshot snapshot, ClaimsPrincipal principal, int? start = null)
+        public Bundle CreateBundle(Snapshot snapshot, ClaimsPrincipal principal, ILocalhost localhost, int? start = null)
         {
             Bundle bundle = new Bundle();
             bundle.Type = snapshot.Type;
@@ -147,14 +147,14 @@ namespace Spark.Service
                 IList<Entry> included = GetIncludesRecursiveFor(entry, snapshot.Includes, principal);
                 entry.Append(included);
             }
-            transfer.Externalize(entry);
+            transfer.Externalize(entry,localhost);
             bundle.Append(entry);
-            BuildLinks(bundle, snapshot, start);
+            BuildLinks(bundle, snapshot, localhost, start);
 
             return bundle;
         }
 
-        void BuildLinks(Bundle bundle, Snapshot snapshot, int? start = null)
+        void BuildLinks(Bundle bundle, Snapshot snapshot, ILocalhost localhost, int? start = null)
         {
             int countParam = snapshot.CountParam ?? DEFAULT_PAGE_SIZE;
         

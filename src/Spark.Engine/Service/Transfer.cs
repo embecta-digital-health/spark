@@ -11,39 +11,39 @@ namespace Spark.Service
     /// </summary>
     public class Transfer
     {
-        ILocalhost localhost;
+        
         IGenerator generator;
 
-        public Transfer(IGenerator generator, ILocalhost localhost)
+        public Transfer(IGenerator generator)
         {
             this.generator = generator;
-            this.localhost = localhost;
+            
         }
 
-        public void Internalize(Entry entry)
+        public void Internalize(Entry entry, ILocalhost localhost)
         {
-            var import = new Import(this.localhost, this.generator);
+            var import = new Import(localhost, this.generator);
             import.Add(entry);
             import.Internalize();
         }
 
-        public void Internalize(IEnumerable<Entry> interactions)
+        public void Internalize(IEnumerable<Entry> interactions, ILocalhost localhost)
         {
-            var import = new Import(this.localhost, this.generator);
+            var import = new Import(localhost, this.generator);
             import.Add(interactions);
             import.Internalize();
         }
 
-        public void Externalize(Entry interaction)
+        public void Externalize(Entry interaction, ILocalhost localhost)
         {
-            Export export = new Export(this.localhost);
+            Export export = new Export(localhost);
             export.Add(interaction);
             export.Externalize();
         }
 
-        public void Externalize(IEnumerable<Entry> interactions)
+        public void Externalize(IEnumerable<Entry> interactions, ILocalhost localhost)
         {
-            Export export = new Export(this.localhost);
+            Export export = new Export(localhost);
             export.Add(interactions);
             export.Externalize();
         }
