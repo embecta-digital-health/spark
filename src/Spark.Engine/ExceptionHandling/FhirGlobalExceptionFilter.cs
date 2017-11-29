@@ -8,6 +8,7 @@
 
 
 using System;
+using System.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Internal;
@@ -47,7 +48,7 @@ namespace Spark.Engine.ExceptionHandling
         public override void OnException(ExceptionContext exceptionContext)
         {
 
-            _logger.LogError("From " + this.GetType().Name + ": " + exceptionContext.Exception.Message);
+            _logger.LogError("++++++From {a}: {b} ---- stacktrace: {c}", this.GetType().Name, exceptionContext.Exception.Message, exceptionContext.Exception.Demystify());
             IActionResult actionResult = _exceptionResponseMessageFactory.GetResponseOutcome(exceptionContext.Exception);
             //exceptionContext.HttpContext.Request.EnableRewind();
             RaygunClient raygunClient = _clientProvider.GetClient(_settings.Value, exceptionContext.HttpContext);
