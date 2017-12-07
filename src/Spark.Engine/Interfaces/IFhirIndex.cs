@@ -7,6 +7,7 @@
  */
 
 using System.Collections.Generic;
+using System.Security.Claims;
 using Hl7.Fhir.Rest;
 using Spark.Engine.Core;
 
@@ -18,7 +19,7 @@ namespace Spark.Core
         void Clean();
         void Process(IEnumerable<Entry> entries);
         void Process(Entry entry);
-        SearchResults Search(string resource, SearchParams searchCommand);
+        SearchResults Search(string resource, SearchParams searchCommand, ClaimsPrincipal principal);
         Key FindSingle(string resource, SearchParams searchCommand);
     }
 

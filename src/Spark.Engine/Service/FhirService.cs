@@ -209,7 +209,7 @@ namespace Spark.Service
             _log.ServiceMethodCalled("search");
 
             Validate.TypeName(type);
-            SearchResults results = fhirIndex.Search(type, searchCommand);
+            SearchResults results = fhirIndex.Search(type, searchCommand, principal);
 
             if (results.HasErrors)
             {
