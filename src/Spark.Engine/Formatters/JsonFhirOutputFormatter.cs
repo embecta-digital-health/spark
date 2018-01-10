@@ -1,5 +1,8 @@
-﻿using System;
+﻿#region
+
+using System;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using Hl7.Fhir.Model;
@@ -10,16 +13,21 @@ using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json;
 using Spark.Engine.Core;
 
+#endregion
+
 namespace Spark.Engine.Formatters
 {
     public class JsonFhirOutputFormatter : TextOutputFormatter
     {
+        public const string ContextOutputLookupKey = "key2497529487";//for loggingmiddleware
+        public const string ContextOutputLookupKeyType = "type9470209745";//for loggingmiddleware
         public JsonFhirOutputFormatter()
         {
             foreach (string mediaType in ContentType.JSON_CONTENT_HEADERS)
             {
                 SupportedMediaTypes.Add(new MediaTypeHeaderValue(mediaType));
             }
+
             SupportedEncodings.Clear();
             SupportedEncodings.Add(Encoding.UTF8);
             SupportedEncodings.Add(Encoding.Unicode);
@@ -39,7 +47,8 @@ namespace Spark.Engine.Formatters
 
             context.HttpContext.Response.ContentType = "application/json";
 
-
+            var injectedRequestStream = new MemoryStream();
+            FhirResponse response = null;
             return Task.Factory.StartNew(() =>
             {
                 using (var streamwriter = new StreamWriter(context.HttpContext.Response.Body))
@@ -55,23 +64,32 @@ namespace Spark.Engine.Formatters
                         {
                             var resource = (Resource) value;
                             FhirSerializer.SerializeResource(resource, writer);
+                            context.HttpContext.Items[ContextOutputLookupKey] = resource;
+                            
                         }
                         else if (typeof(Resource).IsAssignableFrom(type))
                         {
                             var resource = (Resource) value;
                             FhirSerializer.SerializeResource(resource, writer);
+                            context.HttpContext.Items[ContextOutputLookupKey] = resource;
                         }
                         else if (typeof(FhirResponse).IsAssignableFrom(type))
                         {
-                            var response = (value as FhirResponse);
+                            response = value as FhirResponse;
                             if (response != null && response.HasBody)
                             {
                                 FhirSerializer.SerializeResource(response.Resource, writer);
                             }
+                            //Set response content for loggingmiddleware processing
+                            context.HttpContext.Items[ContextOutputLookupKey] = response;
                         }
+                        //Set type for loggingmiddleware processing
+                        context.HttpContext.Items[ContextOutputLookupKeyType] = type;
                     }
                 }
             });
         }
+
+        
     }
 }

@@ -49,7 +49,7 @@ namespace Spark.Engine.ExceptionHandling
             }
             catch (Exception ex)
             {
-                logger.LogError("From {0}: {1} /n +++++++++++++ /n {2}", GetType().Name, ex.Message, ex.Demystify().ToString());
+                logger.LogError("From {name}: {message}  {stackTrace}", GetType().Name, ex.Message, ex.Demystify().ToString());
                 await HandleExceptionAsync(context, ex);
             }
         }
