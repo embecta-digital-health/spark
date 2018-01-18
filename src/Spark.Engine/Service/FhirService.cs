@@ -5,75 +5,76 @@
  * This file is licensed under the BSD 3-Clause license
  * available at https://raw.github.com/furore-fhir/spark/master/LICENSE
  */
+using Hl7.Fhir.Model;
+using Hl7.Fhir.Rest;
+using Microsoft.AspNetCore.Authorization;
+using Spark.Core;
+using Spark.Engine.Auxiliary;
+using Spark.Engine.Core;
+using Spark.Engine.Extensions;
+using Spark.Engine.Interfaces;
+using Spark.Engine.Logging;
+using Spark.Engine.Service;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Security.Claims;
-using Hl7.Fhir.Model;
-using Hl7.Fhir.Rest;
-using Microsoft.AspNetCore.Authorization;
-using Spark.Core;
-using Spark.Engine.Core;
-using Spark.Engine.Extensions;
-using Spark.Engine.Auxiliary;
-using Spark.Engine.Interfaces;
-using Spark.Engine.Logging;
-using Spark.Engine.Service;
+using System.Threading.Tasks;
 
 namespace Spark.Service
 {
 
     public class FhirService
     {
-        protected IFhirStore fhirStore;
-        protected ISnapshotStore snapshotstore;
-        protected IFhirIndex fhirIndex;
+        private readonly IFhirStore _fhirStore;
+        private readonly ISnapshotStore _snapshotstore;
+        private readonly IFhirIndex _fhirIndex;
 
-        protected IGenerator keyGenerator;
-        protected IServiceListener serviceListener;
-        private readonly IFhirResponseFactory responseFactory;
+        private readonly IGenerator _keyGenerator;
+        private readonly IServiceListener _serviceListener;
+        private readonly IFhirResponseFactory _responseFactory;
 
-        protected Transfer transfer;
-        protected Pager pager;
+        private Transfer transfer;
+        private Pager pager;
 
-        protected IndexService _indexService;
+        private readonly IndexService _indexService;
 
-        private SparkEngineEventSource _log = SparkEngineEventSource.Log;
+        private readonly SparkEngineEventSource _log = SparkEngineEventSource.Log;
 
         public FhirService(IFhirStore fhirStore, ISnapshotStore snapshotStore, IGenerator keyGenerator, IAuthorizationService authService,
             IFhirIndex fhirIndex, IServiceListener serviceListener, IFhirResponseFactory responseFactory, IndexService indexService)
         {
             
-            this.fhirStore = fhirStore;
-            this.snapshotstore = snapshotStore;
-            this.keyGenerator = keyGenerator;
-            this.fhirIndex = fhirIndex;
-            this.serviceListener = serviceListener;
-            this.responseFactory = responseFactory;
+            this._fhirStore = fhirStore;
+            this._snapshotstore = snapshotStore;
+            this._keyGenerator = keyGenerator;
+            this._fhirIndex = fhirIndex;
+            this._serviceListener = serviceListener;
+            this._responseFactory = responseFactory;
             _indexService = indexService;
 
-            transfer = new Transfer(this.keyGenerator);
-            pager = new Pager(this.fhirStore, snapshotstore, transfer, ModelInfo.SearchParameters, authService);
+            transfer = new Transfer(this._keyGenerator);
+            pager = new Pager(this._fhirStore, _snapshotstore, transfer, ModelInfo.SearchParameters, authService);
             //TODO: Use FhirModel instead of ModelInfo for the searchparameters.
         }
 
-        public FhirResponse Read(Key key, ClaimsPrincipal principal, ConditionalHeaderParameters parameters = null)
+        public async Task<FhirResponse> Read(Key key, ClaimsPrincipal principal, ConditionalHeaderParameters parameters = null)
         {
             _log.ServiceMethodCalled("read");
 
             ValidateKey(key);
 
-            return responseFactory.GetFhirResponse(key, principal, parameters);
+            return await _responseFactory.GetFhirResponse(key, principal, parameters);
         }
 
-        public FhirResponse ReadMeta(Key key, ClaimsPrincipal principal)
+        public async Task<FhirResponse> ReadMeta(Key key, ClaimsPrincipal principal)
         {
             _log.ServiceMethodCalled("readmeta");
 
             ValidateKey(key);
 
-            Entry entry = fhirStore.Get(key, principal);
+            Entry entry = await _fhirStore.GetAsync(key, principal);
 
             if (entry == null)
             {
@@ -102,9 +103,9 @@ namespace Spark.Service
             Validate.Key(key);
         }
 
-        public FhirResponse AddMeta(Key key, Parameters parameters, ClaimsPrincipal principal, ILocalhost localhost)
+        public async Task<FhirResponse> AddMeta(Key key, Parameters parameters, ClaimsPrincipal principal, ILocalhost localhost)
         {
-            Entry entry = fhirStore.Get(key, principal);
+            Entry entry = await _fhirStore.GetAsync(key, principal);
 
             if (entry == null)
             {
@@ -124,21 +125,18 @@ namespace Spark.Service
         /// <summary>
         /// Read the state of a specific version of the resource.
         /// </summary>
-        /// <param name="collectionName">The resource type, in lowercase</param>
-        /// <param name="id">The id part of a version-specific reference</param>
-        /// <param name="vid">The version part of a version-specific reference</param>
         /// <returns>A Result containing the resource, or an Issue</returns>
         /// <remarks>
         /// If the version referred to is actually one where the resource was deleted, the server should return a 
         /// 410 status code. 
         /// </remarks>
-        public FhirResponse VersionRead(Key key, ClaimsPrincipal principal)
+        public async Task<FhirResponse> VersionRead(Key key, ClaimsPrincipal principal)
         {
             _log.ServiceMethodCalled("versionread");
 
             ValidateKey(key, true);
 
-            return responseFactory.GetFhirResponse(key,principal);
+            return await _responseFactory.GetFhirResponse(key,principal);
         }
 
         /// <summary>
@@ -153,7 +151,7 @@ namespace Spark.Service
         /// Returns 
         ///     201 Created - on successful creation
         /// </returns>
-        public FhirResponse Create(IKey key, Resource resource, ClaimsPrincipal principal, ILocalhost localhost)
+        public async Task<FhirResponse> Create(IKey key, Resource resource, ClaimsPrincipal principal, ILocalhost localhost)
         {
             Validate.Key(key);
             Validate.ResourceType(key, resource);
@@ -168,12 +166,12 @@ namespace Spark.Service
 
             // API: The api demands a body. This is wrong
             //CCR: The documentations specifies that servers should honor the Http return preference header
-            Entry result = fhirStore.Get(entry.Key, principal);
+            Entry result = await _fhirStore.GetAsync(entry.Key, principal);
             transfer.Externalize(result, localhost);
             return Respond.WithResource(HttpStatusCode.Created, result);
         }
 
-        public FhirResponse Put(IKey key, Resource resource, ClaimsPrincipal principal, ILocalhost localhost)
+        public async Task<FhirResponse> Put(IKey key, Resource resource, ClaimsPrincipal principal, ILocalhost localhost)
         {
             Validate.Key(key);
             Validate.ResourceType(key, resource);
@@ -182,7 +180,7 @@ namespace Spark.Service
             Validate.HasResourceId(resource);
             Validate.IsResourceIdEqual(key, resource);
 
-            Entry current = fhirStore.Get(key, principal);
+            Entry current = await _fhirStore.GetAsync(key, principal);
 
             Entry entry = Entry.PUT(key, resource);
             transfer.Internalize(entry, localhost);
@@ -192,7 +190,7 @@ namespace Spark.Service
 
             // API: The api demands a body. This is wrong
             //CCR: The documentations specifies that servers should honor the Http return preference header
-            Entry result = fhirStore.Get(entry.Key, principal);
+            Entry result = await _fhirStore.GetAsync(entry.Key, principal);
             transfer.Externalize(result, localhost);
 
             return Respond.WithResource(current != null ? HttpStatusCode.OK : HttpStatusCode.Created, result);
@@ -204,12 +202,12 @@ namespace Spark.Service
             throw new NotImplementedException("This will be implemented after search is DSTU2");
         }
 
-        public FhirResponse Search(string type, SearchParams searchCommand, ClaimsPrincipal principal, ILocalhost localhost)
+        public async Task<FhirResponse> Search(string type, SearchParams searchCommand, ClaimsPrincipal principal, ILocalhost localhost)
         {
             _log.ServiceMethodCalled("search");
 
             Validate.TypeName(type);
-            SearchResults results = fhirIndex.Search(type, searchCommand, principal);
+            SearchResults results = _fhirIndex.Search(type, searchCommand, principal);
 
             if (results.HasErrors)
             {
@@ -225,11 +223,11 @@ namespace Spark.Service
                 bundle.Type = Bundle.BundleType.Batch;
                 bundle.Total = results.Count;
                 bundle.Id = UriHelper.CreateUuid().ToString();
-                //todo use story by (see CouchFhirStore Get method)
-                List<Entry> entry = fhirStore.Get(results.ToArray(), null, principal).ToList();
+                //todo use story by (see CouchFhirStore GetAsync method)
+                List<Entry> entry = (await _fhirStore.GetAsync(results.ToArray(), null, principal)).ToList();
                 if (searchCommand.Include.Count != 0)
                 {
-                                    IList<Entry> included = pager.GetIncludesRecursiveFor(entry, searchCommand.Include, principal);
+                                    IList<Entry> included = await pager.GetIncludesRecursiveFor(entry, searchCommand.Include, principal);
                                     entry.Append(included);
                 }
 
@@ -238,12 +236,11 @@ namespace Spark.Service
             }
             else
             {
-                UriBuilder builder = new UriBuilder(localhost.Uri(type));
-                builder.Query = results.UsedParameters;
+                var builder = new UriBuilder(localhost.Uri(type)) {Query = results.UsedParameters};
                 Uri link = builder.Uri;
 
-                var snapshot = pager.CreateSnapshot(link, results, searchCommand);
-                bundle = pager.GetFirstPage(snapshot, principal, localhost);
+                Snapshot snapshot = pager.CreateSnapshot(link, results, searchCommand);
+                bundle = await pager.GetFirstPage(snapshot, principal, localhost);
             }
             if (results.HasIssues)
             {
@@ -295,7 +292,7 @@ namespace Spark.Service
         //    Validate.HasNoVersion(key);
         //    Validate.ResourceType(key, resource);
 
-        //    Interaction original = store.Get(key);
+        //    Interaction original = store.GetAsync(key);
 
         //    if (original == null)
         //    {
@@ -315,16 +312,16 @@ namespace Spark.Service
         //    return Respond.WithEntry(HttpStatusCode.OK, interaction);
         //}
 
-        public FhirResponse VersionSpecificUpdate(IKey versionedkey, Resource resource, ClaimsPrincipal principal, ILocalhost localhost)
+        public async Task<FhirResponse> VersionSpecificUpdate(IKey versionedkey, Resource resource, ClaimsPrincipal principal, ILocalhost localhost)
         {
             Validate.HasTypeName(versionedkey);
             Validate.HasVersion(versionedkey);
 
             Key key = versionedkey.WithoutVersion();
-            Entry current = fhirStore.Get(key, principal);
+            Entry current = await _fhirStore.GetAsync(key, principal);
             Validate.IsSameVersion(current.Key, versionedkey);
 
-            return this.Put(key, resource, principal, localhost);
+            return await Put(key, resource, principal, localhost);
         }
 
         /// <summary>
@@ -332,22 +329,22 @@ namespace Spark.Service
         /// If a VersionId is included a version specific update will be attempted.
         /// </summary>
         /// <returns>200 OK (on success)</returns>
-        public FhirResponse Update(IKey key, Resource resource, ClaimsPrincipal principal, ILocalhost localhost)
+        public async Task<FhirResponse> Update(IKey key, Resource resource, ClaimsPrincipal principal, ILocalhost localhost)
         {
             if (key.HasVersionId())
             {
-                return this.VersionSpecificUpdate(key, resource, principal, localhost);
+                return await VersionSpecificUpdate(key, resource, principal, localhost);
             }
             else
             {
-                return this.Put(key, resource, principal, localhost);
+                return await Put(key, resource, principal, localhost);
             }
         }
 
-        public FhirResponse ConditionalUpdate(Key key, Resource resource, SearchParams _params, ClaimsPrincipal principal, ILocalhost localhost)
+        public async Task<FhirResponse> ConditionalUpdate(Key key, Resource resource, SearchParams _params, ClaimsPrincipal principal, ILocalhost localhost)
         {
-            Key existing = fhirIndex.FindSingle(key.TypeName, _params).WithoutVersion();
-            return this.Update(existing, resource, principal, localhost);
+            Key existing = _fhirIndex.FindSingle(key.TypeName, _params).WithoutVersion();
+            return await Update(existing, resource, principal, localhost);
         }
 
         /// <summary>
@@ -364,18 +361,18 @@ namespace Spark.Service
         ///   * If the resource does not exist on the server, the server must return 404 (Not found).
         ///   * Performing this operation on a resource that is already deleted has no effect, and should return 204 (No Content).
         /// </remarks>
-        public FhirResponse Delete(IKey key, ClaimsPrincipal principal, ILocalhost localhost)
+        public async Task<FhirResponse> Delete(IKey key, ClaimsPrincipal principal, ILocalhost localhost)
         {
             Validate.Key(key);
             Validate.HasNoVersion(key);
 
-            Entry current = fhirStore.Get(key, principal);
+            Entry current = await _fhirStore.GetAsync(key, principal);
 
             if (current != null && current.IsPresent)
             {
                 // Add a new deleted-entry to mark this entry as deleted
                 //Entry deleted = importer.ImportDeleted(location);
-                key = keyGenerator.NextHistoryKey(key);
+                key = _keyGenerator.NextHistoryKey(key);
                 Entry deleted = Entry.DELETE(key, DateTimeOffset.UtcNow);
 
                 Store(deleted, principal, localhost);
@@ -399,19 +396,19 @@ namespace Spark.Service
             //return Respond.WithCode(HttpStatusCode.NoContent);
         }
 
-        public FhirResponse HandleInteraction(Entry interaction, ClaimsPrincipal principal, ILocalhost localhost)
+        public async Task<FhirResponse> HandleInteraction(Entry interaction, ClaimsPrincipal principal, ILocalhost localhost)
         {
             switch (interaction.Method)
             {
-                case Bundle.HTTPVerb.PUT: return this.Update(interaction.Key, interaction.Resource, principal, localhost);
-                case Bundle.HTTPVerb.POST: return this.Create(interaction.Key, interaction.Resource, principal, localhost);
-                case Bundle.HTTPVerb.DELETE: return this.Delete(interaction.Key, principal, localhost);
+                case Bundle.HTTPVerb.PUT: return await this.Update(interaction.Key, interaction.Resource, principal, localhost);
+                case Bundle.HTTPVerb.POST: return await this.Create(interaction.Key, interaction.Resource, principal, localhost);
+                case Bundle.HTTPVerb.DELETE: return await this.Delete(interaction.Key, principal, localhost);
                 default: return Respond.Success;
             }
         }
 
         // These should eventually be Interaction! = FhirRequests. Not Entries.
-        public FhirResponse Transaction(IList<Entry> interactions, ClaimsPrincipal principal, ILocalhost localhost)
+        public async Task<FhirResponse> Transaction(IList<Entry> interactions, ClaimsPrincipal principal, ILocalhost localhost)
         {
             transfer.Internalize(interactions, localhost);
 
@@ -419,7 +416,7 @@ namespace Spark.Service
 
             foreach (Entry interaction in interactions)
             {
-                FhirResponse response = HandleInteraction(interaction, principal, localhost);
+                FhirResponse response = await HandleInteraction(interaction, principal, localhost);
 
                 if (!response.IsValid) return response;
                 resources.Add(response.Resource);
@@ -437,8 +434,8 @@ namespace Spark.Service
             var interactions = localhost.GetEntries(bundle);
             transfer.Internalize(interactions, localhost);
 
-            fhirStore.Add(interactions, principal);
-            fhirIndex.Process(interactions);
+            _fhirStore.Add(interactions, principal);
+            _fhirIndex.Process(interactions);
             transfer.Externalize(interactions, localhost);
 
             bundle = localhost.CreateBundle(Bundle.BundleType.TransactionResponse).Append(interactions);
@@ -446,44 +443,44 @@ namespace Spark.Service
             return Respond.WithBundle(bundle);
         }
 
-        public FhirResponse History(HistoryParameters parameters, ClaimsPrincipal principal, ILocalhost localhost)
+        public async Task<FhirResponse> History(HistoryParameters parameters, ClaimsPrincipal principal, ILocalhost localhost)
         {
             var since = parameters.Since ?? DateTimeOffset.MinValue;
             Uri link = localhost.Uri(RestOperation.HISTORY);
 
-            IEnumerable<string> keys = fhirStore.History(since);
+            IEnumerable<string> keys = _fhirStore.History(since);
             var snapshot = pager.CreateSnapshot(Bundle.BundleType.History, link, keys, parameters.SortBy, parameters.Count, null);
-            Bundle bundle = pager.GetFirstPage(snapshot, principal, localhost);
+            Bundle bundle = await pager.GetFirstPage(snapshot, principal, localhost);
 
             // DSTU2: export
             // exporter.Externalize(bundle);
             return Respond.WithBundle(bundle);
         }
 
-        public FhirResponse History(string type, HistoryParameters parameters, ClaimsPrincipal principal, ILocalhost localhost)
+        public async Task<FhirResponse> History(string type, HistoryParameters parameters, ClaimsPrincipal principal, ILocalhost localhost)
         {
             Validate.TypeName(type);
             Uri link = localhost.Uri(type, RestOperation.HISTORY);
 
-            IEnumerable<string> keys = fhirStore.History(type, parameters.Since);
-            var snapshot = pager.CreateSnapshot(Bundle.BundleType.History, link, keys, parameters.SortBy, parameters.Count, null);
-            Bundle bundle = pager.GetFirstPage(snapshot, principal, localhost);
+            IEnumerable<string> keys = _fhirStore.History(type, parameters.Since);
+            Snapshot snapshot = pager.CreateSnapshot(Bundle.BundleType.History, link, keys, parameters.SortBy, parameters.Count, null);
+            Bundle bundle = await pager.GetFirstPage(snapshot, principal, localhost);
 
             return Respond.WithResource(bundle);
         }
 
-        public FhirResponse History(Key key, HistoryParameters parameters, ClaimsPrincipal principal, ILocalhost localhost)
+        public async Task<FhirResponse> History(Key key, HistoryParameters parameters, ClaimsPrincipal principal, ILocalhost localhost)
         {
-            if (!fhirStore.Exists(key))
+            if (!_fhirStore.Exists(key))
             {
                 return Respond.NotFound(key);
             }
 
             Uri link = localhost.Uri(key);
 
-            IEnumerable<string> keys = fhirStore.History(key, parameters.Since);
+            IEnumerable<string> keys = _fhirStore.History(key, parameters.Since);
             var snapshot = pager.CreateSnapshot(Bundle.BundleType.History, link, keys, parameters.SortBy, parameters.Count);
-            Bundle bundle = pager.GetFirstPage(snapshot, principal, localhost);
+            Bundle bundle = await pager.GetFirstPage(snapshot, principal, localhost);
 
             return Respond.WithResource(key, bundle);
         }
@@ -553,7 +550,7 @@ namespace Spark.Service
         public TagList TagsFromInstance(string collection, string id)
         {
             Uri key = BuildKey(collection, id);
-            BundleEntry entry = store.Get(key);
+            BundleEntry entry = store.GetAsync(key);
 
             if (entry == null)
                 throwNotFound("Cannot retrieve tags because entry {0}/{1} does not exist", collection, id);
@@ -565,7 +562,7 @@ namespace Spark.Service
         public TagList TagsFromHistory(string collection, string id, string vid)
         {
             Uri key = BuildKey(collection, id, vid);
-            BundleEntry entry = store.Get(key);
+            BundleEntry entry = store.GetAsync(key);
 
             if (entry == null)
                 throwNotFound("Cannot retrieve tags because entry {0}/{1} does not exist", collection, id, vid); 
@@ -584,7 +581,7 @@ namespace Spark.Service
         {
             if (tags == null) throw new SparkException("No tags specified on the request");
             Uri key = BuildKey(collection, id);
-            BundleEntry entry = store.Get(key);
+            BundleEntry entry = store.GetAsync(key);
             
             if (entry == null)
                 throw new SparkException(HttpStatusCode.NotFound, "Could not set tags. The resource was not found.");
@@ -598,7 +595,7 @@ namespace Spark.Service
             Uri key = BuildKey(collection, id, vid);
             if (tags == null) throw new SparkException("No tags specified on the request");
 
-            BundleEntry entry = store.Get(key);
+            BundleEntry entry = store.GetAsync(key);
             if (entry == null)
                 throw new SparkException(HttpStatusCode.NotFound, "Could not set tags. The resource was not found.");
 
@@ -611,7 +608,7 @@ namespace Spark.Service
             if (tags == null) throw new SparkException("No tags specified on the request");
 
             Uri key = BuildKey(collection, id);
-            BundleEntry entry = store.Get(key);
+            BundleEntry entry = store.GetAsync(key);
             if (entry == null)
                 throw new SparkException(HttpStatusCode.NotFound, "Could not set tags. The resource was not found.");
 
@@ -629,7 +626,7 @@ namespace Spark.Service
 
             Uri key = BuildKey(collection, id, vid);
 
-            ResourceEntry entry = (ResourceEntry)store.Get(key);
+            ResourceEntry entry = (ResourceEntry)store.GetAsync(key);
             if (entry == null)
                 throw new SparkException(HttpStatusCode.NotFound, "Could not set tags. The resource was not found.");
 
@@ -693,15 +690,15 @@ namespace Spark.Service
             //    return (ResourceEntry)conformance;
         }
 
-        public FhirResponse GetPage(string snapshotkey, int index, ClaimsPrincipal principal, ILocalhost localhost)
+        public async Task<FhirResponse> GetPage(string snapshotkey, int index, ClaimsPrincipal principal, ILocalhost localhost)
         {
-            Bundle bundle = pager.GetPage(snapshotkey, index, principal, localhost);
+            Bundle bundle = await pager.GetPage(snapshotkey, index, principal, localhost);
             return Respond.WithBundle(bundle);
         }
 
         private void Store(Entry entry, ClaimsPrincipal principal, ILocalhost localhost)
         {
-            fhirStore.Add(entry, principal);
+            _fhirStore.Add(entry, principal);
 
             //CK: try the new indexing service.
             if (_indexService != null)
@@ -709,19 +706,19 @@ namespace Spark.Service
                 _indexService.Process(entry);
             }
 
-            else if (fhirIndex != null)
+            else if (_fhirIndex != null)
             {
                 //TODO: If IndexService is working correctly, remove the reference to fhirIndex.
-                fhirIndex.Process(entry);
+                _fhirIndex.Process(entry);
             }
 
 
-            if (serviceListener != null)
+            if (_serviceListener != null)
             {
                 Uri location = localhost.GetAbsoluteUri(entry.Key);
                 // todo: what we want is not to send localhost to the listener, but to add the Resource.Base. But that is not an option in the current infrastructure.
                 // It would modify interaction.Resource, while 
-                serviceListener.Inform(location, entry);
+                _serviceListener.Inform(location, entry);
             }
         }
 

@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
+using System.Threading.Tasks;
 using Spark.Core;
 using Spark.Engine.Core;
 using Spark.Engine.Extensions;
@@ -43,13 +44,13 @@ namespace Spark.Service
             _authService = authService;
         }
 
-        public Bundle GetPage(string snapshotkey, int start, ClaimsPrincipal principal, ILocalhost localhost)
+        public async Task<Bundle> GetPage(string snapshotkey, int start, ClaimsPrincipal principal, ILocalhost localhost)
         {
             Snapshot snapshot = snapshotstore.GetSnapshot(snapshotkey);
-            return GetPage(snapshot, principal, localhost, start);
+            return await GetPage(snapshot, principal, localhost, start);
         }
 
-        public Bundle GetPage(Snapshot snapshot, ClaimsPrincipal principal, ILocalhost localhost, int? start = null)
+        public async Task<Bundle> GetPage(Snapshot snapshot, ClaimsPrincipal principal, ILocalhost localhost, int? start = null)
         {
             //if (pagesize > MAX_PAGE_SIZE) pagesize = MAX_PAGE_SIZE;
 
@@ -63,12 +64,12 @@ namespace Spark.Service
                     snapshot.Keys.Count(), snapshot.Id);
             }
 
-            return this.CreateBundle(snapshot, principal, localhost, start);
+            return await CreateBundle(snapshot, principal, localhost, start);
         }
 
-        public Bundle GetFirstPage(Snapshot snapshot, ClaimsPrincipal principal, ILocalhost localhost)
+        public async Task<Bundle> GetFirstPage(Snapshot snapshot, ClaimsPrincipal principal, ILocalhost localhost)
         {
-            Bundle bundle = this.GetPage(snapshot,principal, localhost);
+            Bundle bundle = await GetPage(snapshot,principal, localhost);
             return bundle;
         }
 
@@ -127,7 +128,7 @@ namespace Spark.Service
             return CreateSnapshot(Bundle.BundleType.Searchset, selflink, keys, sort, count, searchCommand.Include);
         }
 
-        public Bundle CreateBundle(Snapshot snapshot, ClaimsPrincipal principal, ILocalhost localhost, int? start = null)
+        public async Task<Bundle> CreateBundle(Snapshot snapshot, ClaimsPrincipal principal, ILocalhost localhost, int? start = null)
         {
             Bundle bundle = new Bundle();
             bundle.Type = snapshot.Type;
@@ -141,10 +142,10 @@ namespace Spark.Service
             }
 
             IList<string> keys = keysInBundle.Take(snapshot.CountParam??DEFAULT_PAGE_SIZE).ToList();
-            IList<Entry> entry = fhirStore.Get(keys,snapshot.SortBy, principal).ToList();
+            IList<Entry> entry = (await fhirStore.GetAsync(keys,snapshot.SortBy, principal)).ToList();
             if (snapshot.Includes.Count != 0)
             {
-                IList<Entry> included = GetIncludesRecursiveFor(entry, snapshot.Includes, principal);
+                IList<Entry> included = await GetIncludesRecursiveFor(entry, snapshot.Includes, principal);
                 entry.Append(included);
             }
             transfer.Externalize(entry,localhost);
@@ -221,7 +222,7 @@ namespace Spark.Service
             }
         }
 
-        private IList<Entry> GetIncludesFor(IList<Entry> entries, IEnumerable<string> includes, ClaimsPrincipal principal)
+        private async Task<IList<Entry>> GetIncludesFor(IList<Entry> entries, IEnumerable<string> includes, ClaimsPrincipal principal)
         {
             if (includes == null) return new List<Entry>();
 
@@ -230,22 +231,22 @@ namespace Spark.Service
             IList<string> identifiers = entries.GetResources().GetReferences(paths).Distinct().ToList();
             if (enumerable.Count() != 0)
             {
-                return fhirStore.GetCurrent(identifiers, null, principal).ToList();
+                return (await fhirStore.GetCurrent(identifiers, null, principal)).ToList();
             }
             return null;
         }
 
-        public IList<Entry> GetIncludesRecursiveFor(IList<Entry> entries, IEnumerable<string> includes, ClaimsPrincipal principal)
+        public async Task<IList<Entry>> GetIncludesRecursiveFor(IList<Entry> entries, IEnumerable<string> includes, ClaimsPrincipal principal)
         {
             IList<Entry> included = new List<Entry>();
 
-            var latest = GetIncludesFor(entries, includes,principal);
+            var latest = await GetIncludesFor(entries, includes,principal);
             int previouscount;
             do
             {
                 previouscount = included.Count;
                 included.AppendDistinct(latest);
-                latest = GetIncludesFor(latest, includes, principal);
+                latest = await GetIncludesFor(latest, includes, principal);
             }
             while (included.Count > previouscount);
             return included;

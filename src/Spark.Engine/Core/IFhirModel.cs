@@ -64,7 +64,7 @@ namespace Spark.Engine.Core
         SearchParameter FindSearchParameter(string resourceTypeName, string parameterName);
 
         /// <summary>
-        /// Get the string value for an enum as specified in the EnumLiteral attribute.
+        /// GetAsync the string value for an enum as specified in the EnumLiteral attribute.
         /// </summary>
         /// <param name="enumType"></param>
         /// <param name="value"></param>
