@@ -117,7 +117,7 @@ namespace Spark.Service
             }
 
             entry.Resource.AffixTags(parameters);
-            Store(entry, principal, localhost);
+            StoreAsync(entry, principal, localhost);
 
             return Respond.WithMeta(entry);
         }
@@ -162,7 +162,7 @@ namespace Spark.Service
             Entry entry = Entry.POST(key, resource);
             transfer.Internalize(entry, localhost);
 
-            Store(entry, principal, localhost);
+            StoreAsync(entry, principal, localhost);
 
             // API: The api demands a body. This is wrong
             //CCR: The documentations specifies that servers should honor the Http return preference header
@@ -186,13 +186,17 @@ namespace Spark.Service
             transfer.Internalize(entry, localhost);
 
 
-            Store(entry,principal, localhost);
+            await StoreAsync(entry,principal, localhost);
 
             // API: The api demands a body. This is wrong
             //CCR: The documentations specifies that servers should honor the Http return preference header
             Entry result = await _fhirStore.GetAsync(entry.Key, principal);
             transfer.Externalize(result, localhost);
 
+            if (result.Resource == null && resource != null)
+            {
+                result.Resource = resource;
+            }
             return Respond.WithResource(current != null ? HttpStatusCode.OK : HttpStatusCode.Created, result);
         }
 
@@ -207,7 +211,7 @@ namespace Spark.Service
             _log.ServiceMethodCalled("search");
 
             Validate.TypeName(type);
-            SearchResults results = _fhirIndex.Search(type, searchCommand, principal);
+            SearchResults results = await _fhirIndex.Search(type, searchCommand, principal);
 
             if (results.HasErrors)
             {
@@ -305,7 +309,7 @@ namespace Spark.Service
         //    interaction.Resource.AffixTags(original.Resource);
 
         //    transfer.Internalize(interaction);
-        //    Store(interaction);
+        //    StoreAsync(interaction);
 
         //    // todo: does this require a response?
         //    transfer.Externalize(interaction);
@@ -375,7 +379,7 @@ namespace Spark.Service
                 key = _keyGenerator.NextHistoryKey(key);
                 Entry deleted = Entry.DELETE(key, DateTimeOffset.UtcNow);
 
-                Store(deleted, principal, localhost);
+                StoreAsync(deleted, principal, localhost);
             }
             return Respond.WithCode(HttpStatusCode.NoContent);
         }
@@ -696,9 +700,9 @@ namespace Spark.Service
             return Respond.WithBundle(bundle);
         }
 
-        private void Store(Entry entry, ClaimsPrincipal principal, ILocalhost localhost)
+        private async Task StoreAsync(Entry entry, ClaimsPrincipal principal, ILocalhost localhost)
         {
-            _fhirStore.Add(entry, principal);
+            await _fhirStore.Add(entry, principal);
 
             //CK: try the new indexing service.
             if (_indexService != null)
