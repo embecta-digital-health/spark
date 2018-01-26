@@ -1,11 +1,7 @@
-﻿using Hl7.Fhir.Model;
-using Hl7.Fhir.Support;
+﻿using Hl7.Fhir.Introspection;
+using Hl7.Fhir.Model;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Spark.Engine.Extensions
 {
